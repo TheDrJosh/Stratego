@@ -1,0 +1,85 @@
+html,
+body {
+    height: 100%;
+    margin: 0;
+    border: 0;
+    padding: 0;
+}
+
+body {
+    background: linear-gradient(to bottom right, #444444, #111111);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+
+    color: whitesmoke;
+}
+
+header {
+    background-color: #222222;
+    display: flex;
+    padding: 1em;
+
+    .title {
+        all: unset;
+        font-size: 5em;
+        flex: 3;
+        cursor: default;
+    }
+
+    spacer {
+        flex: 5;
+    }
+
+    acount {
+        flex: 1;
+        flex-direction: column;
+        display: flex;
+
+
+        imgt {
+            flex: 2;
+            text-align: center;
+        }
+
+        name {
+            flex: 1;
+            text-align: center;
+        }
+
+        login {
+            text-align: center;
+            position: relative;
+            top: 50%;
+            left: 50%;
+            -ms-transform: translate(-50%, -50%);
+            transform: translate(-50%, -50%);
+        }
+    }
+}
+
+
+home {
+    display: flex;
+    flex-direction: column;
+
+    .play {
+        all: unset;
+        font-size: 10em;
+        margin: 2rem;
+        margin-top: 5rem;
+        color: black;
+        text-align: center;
+        box-sizing: border-box;
+        background-color: goldenrod;
+        border-width: 5px;
+        border-style: outset;
+        border-color: black;
+        border-radius: 10px;
+        cursor: default;
+    }
+
+    p {
+        margin: 4em;
+    }
+
+}

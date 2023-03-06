@@ -6,21 +6,21 @@ use strum::{EnumString, ParseError};
 #[macro_use] extern crate rocket;
 
 #[derive(EnumString)]
-enum Pages {
-    #[strum(serialize = "other")]
-    Other,
+enum Route {
+    #[strum(serialize = "select")]
+    GameSelect,
 }
 
-impl<'a> FromParam<'a> for Pages {
+impl<'a> FromParam<'a> for Route {
     type Error = ParseError;
 
     fn from_param(param: &'a str) -> Result<Self, Self::Error> {
-        Pages::from_str(param)
+        Route::from_str(param)
     }
 }
 
 #[get("/<page>")]
-async fn app_page(page: Pages) -> NamedFile {
+async fn app_page(page: Route) -> NamedFile {
 
     NamedFile::open("../web/dist/index.html").await.expect("could not find index.html")
 }
