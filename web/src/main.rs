@@ -1,12 +1,17 @@
 use yew::prelude::*;
 use yew_router::prelude::*;
 
+//consider removing yew routing and just use static web pages with rocket for everything but the game
+
+
 #[derive(Clone, Routable, PartialEq)]
 enum Route {
     #[at("/")]
     Home,
     #[at("/select")]
     GameSelect,
+    #[at("/Game/:id")]
+    Game,
 }
 
 #[function_component(Acount)]
@@ -62,6 +67,7 @@ fn switch(routes: Route) -> Html {
                 {"select"}
             }
         },
+        Route::Game => todo!(),
     }
 }
 #[function_component]
