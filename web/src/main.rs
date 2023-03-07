@@ -1,60 +1,16 @@
+use common::*;
+use home::Home;
+use select_game::SelectGame;
 use yew::prelude::*;
 use yew_router::prelude::*;
+mod common;
+mod home;
+mod select_game;
 
 //consider removing yew routing and just use static web pages with rocket for everything but the game
 
 
-#[derive(Clone, Routable, PartialEq)]
-enum Route {
-    #[at("/")]
-    Home,
-    #[at("/select")]
-    GameSelect,
-    #[at("/Game/:id")]
-    Game,
-}
 
-#[function_component(Acount)]
-fn acount() -> Html {
-
-    
-    html! {
-        <acount>
-            <imgt>{"acount image"}</imgt>
-            <name>{"acount name"}</name>
-        </acount>
-    };
-
-    html! {
-        <acount>
-            <login>{"Login"}</login>
-        </acount>
-    }
-}
-
-
-#[function_component(Header)]
-fn header() -> Html {
-    html! {
-        <header>
-            <Link<Route> to={Route::Home} classes={"title"}>
-                {"Stratego"}
-            </Link<Route>>
-            <spacer/>
-            <Acount/>
-        </header>
-    }
-}
-
-#[function_component(Home)]
-fn home() -> Html {
-    html! { 
-        <home>
-            <Link<Route> to={Route::GameSelect} classes={"play"}>{"Play Now!"}</Link<Route>>
-            <p>{"this is a description"}</p>
-        </home> 
-    }
-}
 
 
 fn switch(routes: Route) -> Html {
@@ -64,7 +20,7 @@ fn switch(routes: Route) -> Html {
         },
         Route::GameSelect => html!{
             html! {
-                {"select"}
+                <SelectGame/>
             }
         },
         Route::Game => todo!(),
