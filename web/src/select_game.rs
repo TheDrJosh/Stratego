@@ -1,14 +1,22 @@
+use common::Side;
+use gloo_net::http::Request;
 use yew::prelude::*;
 use yew_router::prelude::*;
 
+use crate::common_comps::Route;
+
+#[derive(PartialEq, Clone, Debug)]
 pub enum MenuState {
     GameSelect,
     FriendSelect,
     TeamSelect(GameType),
     JoinSelect,
-    Wait(GameType),
+    GameRandom(Side),
+    GameComputer(Side),
+    NewGameFriend(Side),
+    JoinGameFriend(u64),
 }
-
+#[derive(PartialEq, Clone, Debug)]
 pub enum GameType {
     Random,
     Friend,
@@ -24,20 +32,54 @@ pub fn select_game() -> Html {
         Callback::from(move |state| menu_state.set(state))
     };
 
-    match *menu_state {
+    let navigator = use_navigator().unwrap();
+
+    match &*menu_state {
         MenuState::GameSelect => html! {
             <GameSelect {change_state}/>
         },
         MenuState::FriendSelect => html! {
-            <FriendSelect/>
+            <FriendSelect {change_state}/>
         },
-        MenuState::TeamSelect(_) => html! {
-            <TeamSelect/>
+        MenuState::TeamSelect(game_type) => html! {
+            <TeamSelect {change_state} game_type={game_type.clone()}/>
         },
-        MenuState::JoinSelect => todo!(),
-        MenuState::Wait(_) => todo!(),
+        MenuState::JoinSelect => html! {
+            <JoinSelect {change_state}/>
+        },
+        MenuState::GameRandom(side) => {
+            join_random_game(&navigator, side);
+            html! {
+                <Wait game_type={GameType::Random} />
+            }
+        },
+        MenuState::GameComputer(side) => {
+            create_bot_game(&navigator, side);
+            html! {
+                <Wait game_type={GameType::Computer} />
+            }
+        },
+        MenuState::NewGameFriend(side) => {
+            create_game(&navigator);
+            html! {
+                <Wait game_type={GameType::Friend} joining={false}/>
+            }
+        },
+        MenuState::JoinGameFriend(id) => {
+            navigator.push(&Route::Game { id: *id });
+            html! {
+                <Wait game_type={GameType::Friend} joining={true}/>
+            }
+        },
     }
-    
+}
+
+fn change_state_on_click(
+    state: MenuState,
+    change_state: &Callback<MenuState>,
+) -> Callback<MouseEvent> {
+    let change_state = change_state.clone();
+    Callback::from(move |_| change_state.emit(state.clone()))
 }
 
 #[derive(Properties, PartialEq)]
@@ -47,57 +89,148 @@ pub struct Props {
 
 #[function_component(GameSelect)]
 fn game_select(props: &Props) -> Html {
-
-    let onclick1 = {
-        let change_state = props.change_state.clone();
-        Callback::from(move |_| change_state.emit(MenuState::FriendSelect))
-    };
-    let onclick2 = {
-        let change_state = props.change_state.clone();
-        Callback::from(move |_| change_state.emit(MenuState::TeamSelect(GameType::Random)))
-    };
-    let onclick3 = {
-        let change_state = props.change_state.clone();
-        Callback::from(move |_| change_state.emit(MenuState::TeamSelect(GameType::Computer)))
-    };
-
     html! {
         <select_game>
             <h1>{"Pick who to fight!"}</h1>
-            <button onclick={onclick1}>{"vs. Friend"}</button>
-            <button onclick={onclick2}>{"vs. Random"}</button>
-            <button onclick={onclick3}>{"vs. Computer"}</button>
+            <button onclick={change_state_on_click(MenuState::FriendSelect, &props.change_state)}>{"vs. Friend"}</button>
+            <button onclick={change_state_on_click(MenuState::TeamSelect(GameType::Random), &props.change_state)}>{"vs. Random"}</button>
+            <button onclick={change_state_on_click(MenuState::TeamSelect(GameType::Computer), &props.change_state)}>{"vs. Computer"}</button>
         </select_game>
     }
 }
 
+#[derive(Properties, PartialEq)]
+pub struct TeamProps {
+    pub change_state: Callback<MenuState>,
+    pub game_type: GameType,
+}
+
 #[function_component(TeamSelect)]
-fn team_select() -> Html {
+fn team_select(props: &TeamProps) -> Html {
+    let (red, blue) = match props.game_type {
+        GameType::Computer => (
+            change_state_on_click(MenuState::GameComputer(Side::Red), &props.change_state),
+            change_state_on_click(MenuState::GameComputer(Side::Blue), &props.change_state),
+        ),
+        GameType::Friend => (
+            change_state_on_click(MenuState::NewGameFriend(Side::Red), &props.change_state),
+            change_state_on_click(MenuState::NewGameFriend(Side::Blue), &props.change_state),
+        ),
+        GameType::Random => (
+            change_state_on_click(MenuState::GameRandom(Side::Red), &props.change_state),
+            change_state_on_click(MenuState::GameRandom(Side::Blue), &props.change_state),
+        ),
+    };
     html! {
         <select_game>
             <h1>{"Pick a Team"}</h1>
-            <button>{"Red"}</button>
-            <button>{"Blue"}</button>
+            <button onclick={red}>{"Red"}</button>
+            <button onclick={blue}>{"Blue"}</button>
         </select_game>
     }
 }
 
 #[function_component(FriendSelect)]
-fn freind_select() -> Html {
+fn freind_select(props: &Props) -> Html {
     html! {
         <select_game>
-            <button>{"Create Game"}</button>
-            <button>{"Join Game"}</button>
+            <button onclick={change_state_on_click(MenuState::TeamSelect(GameType::Friend), &props.change_state)}>{"Create Game"}</button>
+            <button onclick={change_state_on_click(MenuState::JoinSelect, &props.change_state)}>{"Join Game"}</button>
         </select_game>
     }
 }
-fn join_select() -> Html {
+
+#[function_component(JoinSelect)]
+fn join_select(props: &Props) -> Html {
+    // Needs Functionality Added
     html! {
         <select_game>
             <input type={"text"}/>
-            <button>{"Join Game"}</button>
+            <button onclick={change_state_on_click(MenuState::JoinGameFriend(0), &props.change_state)}>{"Join Game"}</button>
         </select_game>
     }
+}
+
+#[derive(Properties, PartialEq)]
+pub struct WaitProps {
+    pub game_type: GameType,
+    pub joining: Option<bool>,
+}
+
+#[function_component(Wait)]
+fn wait(props: &WaitProps) -> Html {
+    let text = match props.game_type {
+        GameType::Computer => "Waiting For Match Creation",
+        GameType::Friend => {
+            if let Some(joining) = props.joining {
+                if joining {
+                    "Waiting For Server To Respond"
+                } else {
+                    "Waiting For Play To Join"
+                }
+            } else {
+                "Error"
+            }
+        }
+        GameType::Random => "Waiting For Match To Be Made",
+    };
+
+    html! {
+        <select_game>
+            <h1>{text}</h1>
+        </select_game>
+    }
+}
+
+fn join_random_game(navigator: &Navigator, team: &Side) {
+    let navigator = navigator.clone();
+    let team = team.clone();
+    wasm_bindgen_futures::spawn_local(async move {
+        let fetched: u64 = Request::get(&format!("http://127.0.0.1:8000/api/join_random_game/{}", team))
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap()
+            .parse()
+            .unwrap();
+        navigator.push(&Route::Game { id: fetched });
+    });
+}
+
+fn create_game(navigator: &Navigator) {
+
+    let navigator = navigator.clone();
+    wasm_bindgen_futures::spawn_local(async move {
+        let fetched: u64 = Request::get("http://127.0.0.1:8000/api/create_game")
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap()
+            .parse()
+            .unwrap();
+        navigator.push(&Route::Game { id: fetched });
+    });
+}
+
+fn create_bot_game(navigator: &Navigator, team: &Side) {
+    let navigator = navigator.clone();
+    let team = team.not();
+    wasm_bindgen_futures::spawn_local(async move {
+        let fetched: u64 = Request::get(&format!("http://127.0.0.1:8000/api/create_bot_game/{}", team))
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap()
+            .parse()
+            .unwrap();
+        navigator.push(&Route::Game { id: fetched });
+    });
 }
 
 /*

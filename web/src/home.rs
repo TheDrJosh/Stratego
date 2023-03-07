@@ -1,6 +1,6 @@
 use yew::prelude::*;
 use yew_router::prelude::*;
-use crate::common::*;
+use crate::common_comps::*;
 
 #[function_component(Home)]
 pub fn home() -> Html {

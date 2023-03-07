@@ -1,3 +1,4 @@
+use common::Side;
 use yew::prelude::*;
 use yew_router::prelude::*;
 
@@ -8,8 +9,11 @@ pub enum Route {
     Home,
     #[at("/select")]
     GameSelect,
-    #[at("/Game")]
-    Game,
+    #[at("/Game/:id")]
+    Game {id: u64},
+    #[not_found]
+    #[at("/404")]
+    NotFound,
 }
 
 

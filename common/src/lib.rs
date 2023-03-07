@@ -1,19 +1,36 @@
 
-struct GameState {
+use serde::Deserialize;
+use strum::{EnumString, Display};
+
+pub struct GameState {
     board: [Option<Piece>; 10*10-2*2*3]
 }
 
-struct Piece {
+pub struct Piece {
+    id: u8,
     owner: Side,
     piece_type: PieceType,
 }
 
-enum Side {
+#[derive(PartialEq, Clone, Debug, EnumString, Display)]
+pub enum Side {
+    #[strum(serialize = "red")]
     Red,
+    #[strum(serialize = "blue")]
     Blue,
 }
 
-enum PieceType {
+impl Side {
+    pub fn not(&self) -> Self {
+        match self {
+            Side::Red => Side::Blue,
+            Side::Blue => Side::Red,
+        }
+    }
+}
+
+
+pub enum PieceType {
     Bomb,
     Marshal,
     General,
@@ -26,4 +43,9 @@ enum PieceType {
     Scout,
     Spy,
     Flag,
+}
+
+#[derive(Clone, PartialEq, Deserialize)]
+pub struct GameInfo {
+    id: u64,
 }

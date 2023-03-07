@@ -1,16 +1,11 @@
-use common::*;
+use common_comps::*;
 use home::Home;
 use select_game::SelectGame;
 use yew::prelude::*;
 use yew_router::prelude::*;
-mod common;
+mod common_comps;
 mod home;
 mod select_game;
-
-//consider removing yew routing and just use static web pages with rocket for everything but the game
-
-
-
 
 
 fn switch(routes: Route) -> Html {
@@ -23,7 +18,12 @@ fn switch(routes: Route) -> Html {
                 <SelectGame/>
             }
         },
-        Route::Game => todo!(),
+        Route::Game{ id } => html! {
+            <h1>{format!("Game {id}")}</h1>
+        },
+        Route::NotFound => html! {
+            <h1>{"404"}</h1>
+        },
     }
 }
 #[function_component]
@@ -37,5 +37,7 @@ fn App() -> Html {
 }
 
 fn main() {
+    console_log::init_with_level(log::Level::Debug).unwrap();
+
     yew::Renderer::<App>::new().render();
 }
