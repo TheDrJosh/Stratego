@@ -7,6 +7,7 @@ use rocket::{
     response::status,
 };
 use strum::{EnumString, ParseError};
+use rocket::serde::json::Json;
 
 #[macro_use]
 extern crate rocket;
@@ -42,29 +43,13 @@ async fn app() -> NamedFile {
 }
 
 // api
-#[get("/create_game")]
-fn create_game() -> String {
+#[post("/create_game", format = "json", data = "<game_info>")]
+fn create_game(game_info: Json<GameInfo>) -> String {
+    let game_info = game_info.0;
+
+    
+
     123.to_string()
-}
-#[get("/join_random_game/<team>")]
-fn join_random_game(team: &str) -> Result<String, &str> {
-    match Side::from_str(team) {
-        Ok(team) => match team {
-            Side::Red => Ok(12.to_string()),
-            Side::Blue => Ok(21.to_string()),
-        },
-        Err(_err) => Err("unable to parse team"),
-    }
-}
-#[get("/create_bot_game/<team>")]
-fn create_bot_game(team: &str) -> Result<String, &str> {
-    match Side::from_str(team) {
-        Ok(team) => match team {
-            Side::Red => Ok(12.to_string()),
-            Side::Blue => Ok(21.to_string()),
-        },
-        Err(_err) => Err("unable to parse team"),
-    }
 }
 
 #[launch]
@@ -73,7 +58,7 @@ fn rocket() -> _ {
         .mount("/", routes![app, app_page])
         .mount(
             "/api",
-            routes![create_game, join_random_game, create_bot_game],
+            routes![create_game],
         )
         .mount("/static", FileServer::new("../web/dist", Options::None))
 }
