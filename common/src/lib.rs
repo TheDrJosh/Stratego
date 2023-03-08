@@ -12,7 +12,7 @@ pub struct Piece {
     piece_type: PieceType,
 }
 
-#[derive(PartialEq, Clone, Debug, EnumString, Display)]
+#[derive(PartialEq, Clone, Debug, EnumString, Display, Deserialize)]
 pub enum Side {
     #[strum(serialize = "red")]
     Red,
@@ -47,5 +47,6 @@ pub enum PieceType {
 
 #[derive(Clone, PartialEq, Deserialize)]
 pub struct GameInfo {
-    id: u64,
+    vs_bot: bool,
+    primary_side: Side,
 }

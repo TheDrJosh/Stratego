@@ -23,7 +23,10 @@ header {
         all: unset;
         font-size: 5em;
         flex: 3;
-        cursor: default;
+        cursor: pointer;
+        color: goldenrod;
+        text-shadow: black 3px 3px;
+
     }
 
     spacer {
@@ -75,11 +78,67 @@ home {
         border-style: outset;
         border-color: black;
         border-radius: 10px;
-        cursor: default;
+        cursor: pointer;
     }
 
     p {
         margin: 4em;
     }
+
+}
+
+select_game {
+    display: flex;
+    flex-direction: column;
+
+    h1 {
+        text-align: center;
+        font-size: 5em;
+        text-shadow: black 5px 5px;
+    }
+
+    button_row {
+        display: flex;
+    }
+
+    button {
+        all: unset;
+        flex: 1;
+        text-align: center;
+        color: black;
+        cursor: pointer;
+        background-color: whitesmoke;
+        margin: 1rem;
+        font-size: 3rem;
+        height: 5em;
+        border-color: black;
+        border-radius: 10px;
+        border-style: outset;
+        border-color: black;
+        border-width: 5px;
+
+    }
+    input_row {
+        display: flex;
+        flex-direction: row;
+        input {
+            margin-top: 5rem;
+            flex-shrink: 10em;
+            font-size: 3em;
+            flex: 1;
+        }
+        spacer {
+            flex: 3;
+        }
+    }
+
+    back {
+        font-size: 1.5em;
+        margin: 1rem;
+        color: black;
+        cursor: pointer;
+    }
+    
+
 
 }

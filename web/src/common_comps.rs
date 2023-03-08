@@ -38,9 +38,7 @@ pub fn acount() -> Html {
 pub fn header() -> Html {
     html! {
         <header>
-            <Link<Route> to={Route::Home} classes={"title"}>
-                {"Stratego"}
-            </Link<Route>>
+            <Link<Route> to={Route::Home} classes={"title"}>{"Stratego"}</Link<Route>>
             <spacer/>
             <Acount/>
         </header>

@@ -10,7 +10,10 @@ yew = { version = "0.20.0", features = ["csr"] }
 yew-router = "0.17"
 common = { path="../common"}
 gloo-net = "0.2"
-serde = { version = "1.0", features = ["derive"] }
 wasm-bindgen-futures = "0.4"
 console_log = { version = "0.2.1", features = ["color"] }
 log = "0.4.17"
+web-sys = { version = "0.3.61", features = ["HtmlInputElement"] }
+serde = { version = "1.0.153", features = ["derive"] }
+
+
