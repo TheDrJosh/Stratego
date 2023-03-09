@@ -118,6 +118,13 @@ select_game {
         border-width: 5px;
 
     }
+    .red {
+        background-color: red;
+    }
+    .blue {
+        background-color: blue;
+    }
+
     input_row {
         display: flex;
         flex-direction: row;

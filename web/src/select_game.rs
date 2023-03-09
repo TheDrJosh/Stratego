@@ -1,9 +1,9 @@
-use common::Side;
+use common::{GameInfo, Side};
 use gloo_net::http::Request;
+use uuid::Uuid;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew_router::prelude::*;
-
 
 use crate::common_comps::Route;
 
@@ -16,7 +16,7 @@ pub enum MenuState {
     GameRandom(Side),
     GameComputer(Side),
     NewGameFriend(Side),
-    JoinGameFriend(u64),
+    JoinGameFriend(Uuid),
 }
 #[derive(PartialEq, Clone, Debug)]
 pub enum GameType {
@@ -137,8 +137,8 @@ fn team_select(props: &TeamProps) -> Html {
             <Back change_state={props.change_state.clone()} prev_menu_state={back_state}/>
             <h1>{"Pick a Team"}</h1>
             <button_row>
-                <button onclick={red}>{"Red"}</button>
-                <button onclick={blue}>{"Blue"}</button>
+                <button onclick={red} class="red">{"Red"}</button>
+                <button onclick={blue} class="blue">{"Blue"}</button>
             </button_row>
         </select_game>
     }
@@ -162,38 +162,43 @@ fn join_select(props: &Props) -> Html {
     let state = use_state(|| false);
 
     let input_ref = use_node_ref();
-    let callback = 
-    {
+    let callback = {
         let input_ref = input_ref.clone();
         let navigator = use_navigator().unwrap();
         let state = state.clone();
 
         Callback::from(move |_| {
-            let input = input_ref.cast::<HtmlInputElement>().expect("input_ref not attachhed to element");
+            let input = input_ref
+                .cast::<HtmlInputElement>()
+                .expect("input_ref not attachhed to element");
 
-            match input.value().parse::<u64>() {
+            match input.value().parse::<Uuid>() {
                 Ok(id) => {
-                    navigator.push(&Route::Game { id });
-                },
+                    let navigator = navigator.clone();
+                    let state = state.clone();
+                    wasm_bindgen_futures::spawn_local(async move {
+                        let exitsts = ask_game_exits(id).await.unwrap();
+                        if exitsts {
+                            navigator.push(&Route::Game { id });
+                        } else {
+                            state.set(true);
+                        }
+                    });
+                }
                 Err(err) => {
-                    log::warn!("{:?}", err);
                     state.set(true);
-                },
+                }
             };
-
         })
     };
-
 
     let invalid = if *state {
         html! {
             <invalid>{"invalid"}</invalid>
         }
     } else {
-        html! {
-        }
+        html! {}
     };
-
 
     html! {
         <select_game>
@@ -240,8 +245,6 @@ fn wait(props: &WaitProps) -> Html {
     }
 }
 
-
-
 #[derive(Properties, PartialEq)]
 pub struct BackProps {
     pub change_state: Callback<MenuState>,
@@ -255,12 +258,11 @@ fn back(props: &BackProps) -> Html {
     }
 }
 
-
 fn join_random_game(navigator: &Navigator, team: &Side) {
     let navigator = navigator.clone();
     let team = team.clone();
     wasm_bindgen_futures::spawn_local(async move {
-        let fetched: u64 = Request::get(&format!(
+        let fetched: Uuid = Request::get(&format!(
             "http://127.0.0.1:8000/api/join_random_game/{}",
             team
         ))
@@ -279,15 +281,7 @@ fn join_random_game(navigator: &Navigator, team: &Side) {
 fn create_game(navigator: &Navigator) {
     let navigator = navigator.clone();
     wasm_bindgen_futures::spawn_local(async move {
-        let fetched: u64 = Request::get("http://127.0.0.1:8000/api/create_game")
-            .send()
-            .await
-            .unwrap()
-            .text()
-            .await
-            .unwrap()
-            .parse()
-            .unwrap();
+        let fetched: Uuid = send_game_request(Side::Red, false).await.unwrap();
         navigator.push(&Route::Game { id: fetched });
     });
 }
@@ -296,20 +290,38 @@ fn create_bot_game(navigator: &Navigator, team: &Side) {
     let navigator = navigator.clone();
     let team = team.not();
     wasm_bindgen_futures::spawn_local(async move {
-        let fetched: u64 = Request::get(&format!(
-            "http://127.0.0.1:8000/api/create_bot_game/{}",
-            team
-        ))
-        .send()
-        .await
-        .unwrap()
-        .text()
-        .await
-        .unwrap()
-        .parse()
-        .unwrap();
+        let fetched: Uuid = send_game_request(Side::Red, true).await.unwrap();
         navigator.push(&Route::Game { id: fetched });
     });
+}
+
+async fn send_game_request(primary_side: Side, vs_bot: bool) -> anyhow::Result<Uuid> {
+    let game_info = GameInfo {
+        vs_bot,
+        primary_side,
+    };
+
+    let fetched = Request::post("http://127.0.0.1:8000/api/create_game")
+        .json(&game_info)?
+        .send()
+        .await?
+        .text()
+        .await?
+        .parse::<Uuid>()?;
+
+    Ok(fetched)
+}
+
+async fn ask_game_exits(id: Uuid) -> anyhow::Result<bool> {
+    let fetched =
+        Request::get(format!("http://127.0.0.1:8000/api/game_exists/{}", id.to_string()).as_str())
+            .send()
+            .await?
+            .text()
+            .await?
+            .parse::<bool>()?;
+
+    Ok(fetched)
 }
 
 /*
