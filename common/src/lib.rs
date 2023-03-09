@@ -22,6 +22,7 @@ impl GameState {
     }
 }
 
+#[derive(Deserialize, Serialize, Clone)]
 pub struct Piece {
     id: u8,
     owner: Side,
@@ -45,7 +46,7 @@ impl Side {
     }
 }
 
-
+#[derive(Deserialize, Serialize, Clone)]
 pub enum PieceType {
     Bomb,
     Marshal,

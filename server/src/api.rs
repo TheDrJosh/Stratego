@@ -3,6 +3,7 @@ use std::{collections::HashMap, str::FromStr};
 use common::GameInfo;
 use common::GameState;
 use common::InitState;
+use common::Piece;
 use common::PieceMove;
 use common::Side;
 use common::UserToken;
@@ -108,14 +109,15 @@ async fn join_game(game_states: &State<GameStoreState>, id: UuidGard) -> String 
 
 
 
-#[get("/get_game_state/<id>/<side>")]
-async fn get_game_state(game_states: &State<GameStoreState>, id: UuidGard, side: SideGard) -> String {
+#[get("/get_game_state/<id>")]
+async fn get_game_state(game_states: &State<GameStoreState>, id: UuidGard) -> String {
     let id = id.0;
-    let side = side.0;
 
-    
+    let games = game_states.games.lock().await;
+    let game = games.get(&id).unwrap();
+    let board = Vec::from(game.board.clone());
 
-
+    rocket::serde::json::to_string(&board).unwrap();
 
     todo!()
 }
