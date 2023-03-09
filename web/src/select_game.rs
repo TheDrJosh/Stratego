@@ -185,7 +185,7 @@ fn join_select(props: &Props) -> Html {
                         }
                     });
                 }
-                Err(err) => {
+                Err(_) => {
                     state.set(true);
                 }
             };
