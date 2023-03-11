@@ -1,20 +1,17 @@
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap};
 
 use common::GameInfo;
 use common::GameState;
 use common::InitState;
 use common::Piece;
 use common::PieceMove;
-use common::Side;
 use common::UserToken;
-use rocket::{request::FromParam, serde::json::Json, tokio::sync::Mutex, Route, State};
+use rocket::{serde::json::Json, tokio::sync::Mutex, Route, State};
 use uuid::Uuid;
-
-use crate::util::SideGard;
 use crate::util::UuidGard;
 
 pub fn api() -> Vec<Route> {
-    routes![create_game, game_exists, join_game, get_game_state]
+    routes![create_game, game_exists, join_game, get_game_state, move_piece, init_setup]
 }
 
 #[derive(Default)]
@@ -54,7 +51,7 @@ async fn game_exists(game_states: &State<GameStoreState>, id: UuidGard) -> Strin
     .to_string()
 }
 
-#[get("/join_game/<id>")]
+#[get("/join/<id>")]
 async fn join_game(game_states: &State<GameStoreState>, id: UuidGard) -> String {
     let id = id.0;
 
@@ -109,22 +106,28 @@ async fn join_game(game_states: &State<GameStoreState>, id: UuidGard) -> String 
 
 
 
-#[get("/get_game_state/<id>")]
+#[get("/game_state/<id>")]
 async fn get_game_state(game_states: &State<GameStoreState>, id: UuidGard) -> String {
     let id = id.0;
 
     let games = game_states.games.lock().await;
-    let game = games.get(&id).unwrap();
+    let game = {
+        let game = games.get(&id);
+        if game.is_none() {
+            return rocket::serde::json::to_string(&None::<Vec<Piece>>).unwrap();
+        }
+        game.unwrap()
+    };
+
+    
     let board = Vec::from(game.board.clone());
 
-    rocket::serde::json::to_string(&board).unwrap();
-
-    todo!()
+    rocket::serde::json::to_string(&Some(board)).unwrap()
 }
 
 
 
-#[post("/move_piece", format = "json", data = "<piece_move>")]
+#[put("/move_piece", format = "json", data = "<piece_move>")]
 fn move_piece(game_states: &State<GameStoreState>, piece_move: Json<PieceMove>) -> String {
     let piece_move = piece_move.0;
 
