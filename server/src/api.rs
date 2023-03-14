@@ -8,7 +8,10 @@ use common::PieceMove;
 use common::UserToken;
 use rocket::{serde::json::Json, tokio::sync::Mutex, Route, State};
 use uuid::Uuid;
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3a2bc7551d04bc0e25f455595982bec277169222
 use crate::util::UuidGard;
 
 pub fn api() -> Vec<Route> {
@@ -51,8 +54,13 @@ async fn game_exists(game_states: &State<GameStoreState>, id: UuidGard) -> Json<
     }.into()
 }
 
+<<<<<<< HEAD
 #[get("/join_game/<id>")]
 async fn join_game(game_states: &State<GameStoreState>, id: UuidGard) -> Json<UserToken> {
+=======
+#[get("/join/<id>")]
+async fn join_game(game_states: &State<GameStoreState>, id: UuidGard) -> String {
+>>>>>>> 3a2bc7551d04bc0e25f455595982bec277169222
     let id = id.0;
 
     let mut games = game_states.games.lock().await;
@@ -109,22 +117,43 @@ async fn join_game(game_states: &State<GameStoreState>, id: UuidGard) -> Json<Us
 
 
 #[get("/game_state/<id>")]
+<<<<<<< HEAD
 async fn get_game_state(game_states: &State<GameStoreState>, id: UuidGard) -> Json<Vec<Option<Piece>>> {
+=======
+async fn get_game_state(game_states: &State<GameStoreState>, id: UuidGard) -> String {
+>>>>>>> 3a2bc7551d04bc0e25f455595982bec277169222
     let id = id.0;
 
     let games = game_states.games.lock().await;
-    let game = games.get(&id).unwrap();
+    let game = {
+        let game = games.get(&id);
+        if game.is_none() {
+            return rocket::serde::json::to_string(&None::<Vec<Piece>>).unwrap();
+        }
+        game.unwrap()
+    };
+
+    
     let board = Vec::from(game.board.clone());
 
+<<<<<<< HEAD
     board.into()
+=======
+    rocket::serde::json::to_string(&Some(board)).unwrap()
+>>>>>>> 3a2bc7551d04bc0e25f455595982bec277169222
 }
 
 //wait_for_game_state
 
 
+<<<<<<< HEAD
 
 #[put("/move_piece/<id>", format = "json", data = "<piece_move>")]
 fn move_piece(game_states: &State<GameStoreState>, id: UuidGard, piece_move: Json<PieceMove>) -> String {
+=======
+#[put("/move_piece", format = "json", data = "<piece_move>")]
+fn move_piece(game_states: &State<GameStoreState>, piece_move: Json<PieceMove>) -> String {
+>>>>>>> 3a2bc7551d04bc0e25f455595982bec277169222
     let piece_move = piece_move.0;
 
     
