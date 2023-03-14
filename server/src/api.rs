@@ -8,10 +8,6 @@ use common::PieceMove;
 use common::UserToken;
 use rocket::{serde::json::Json, tokio::sync::Mutex, Route, State};
 use uuid::Uuid;
-<<<<<<< HEAD
-
-=======
->>>>>>> 3a2bc7551d04bc0e25f455595982bec277169222
 use crate::util::UuidGard;
 
 pub fn api() -> Vec<Route> {
@@ -54,13 +50,8 @@ async fn game_exists(game_states: &State<GameStoreState>, id: UuidGard) -> Json<
     }.into()
 }
 
-<<<<<<< HEAD
-#[get("/join_game/<id>")]
-async fn join_game(game_states: &State<GameStoreState>, id: UuidGard) -> Json<UserToken> {
-=======
 #[get("/join/<id>")]
 async fn join_game(game_states: &State<GameStoreState>, id: UuidGard) -> String {
->>>>>>> 3a2bc7551d04bc0e25f455595982bec277169222
     let id = id.0;
 
     let mut games = game_states.games.lock().await;
