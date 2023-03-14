@@ -51,7 +51,7 @@ async fn game_exists(game_states: &State<GameStoreState>, id: UuidGard) -> Json<
 }
 
 #[get("/join/<id>")]
-async fn join_game(game_states: &State<GameStoreState>, id: UuidGard) -> String {
+async fn join_game(game_states: &State<GameStoreState>, id: UuidGard) -> Json<UserToken> {
     let id = id.0;
 
     let mut games = game_states.games.lock().await;
