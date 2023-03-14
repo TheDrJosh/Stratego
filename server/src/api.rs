@@ -1,20 +1,18 @@
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap};
 
 use common::GameInfo;
 use common::GameState;
 use common::InitState;
 use common::Piece;
 use common::PieceMove;
-use common::Side;
 use common::UserToken;
-use rocket::{request::FromParam, serde::json::Json, tokio::sync::Mutex, Route, State};
+use rocket::{serde::json::Json, tokio::sync::Mutex, Route, State};
 use uuid::Uuid;
 
-use crate::util::SideGard;
 use crate::util::UuidGard;
 
 pub fn api() -> Vec<Route> {
-    routes![create_game, game_exists, join_game, get_game_state]
+    routes![create_game, game_exists, join_game, get_game_state, move_piece, init_setup]
 }
 
 #[derive(Default)]
@@ -24,7 +22,7 @@ pub struct GameStoreState {
 }
 
 #[post("/create_game", format = "json", data = "<game_info>")]
-async fn create_game(game_states: &State<GameStoreState>, game_info: Json<GameInfo>) -> String {
+async fn create_game(game_states: &State<GameStoreState>, game_info: Json<GameInfo>) -> Json<Uuid> {
     let game_info = game_info.0;
 
     let id = Uuid::new_v4();
@@ -38,27 +36,26 @@ async fn create_game(game_states: &State<GameStoreState>, game_info: Json<GameIn
         game_states.bot_games.lock().await.push(id);
     }
 
-    id.to_string()
+    id.into()
 }
 
 
 
 #[get("/game_exists/<id>")]
-async fn game_exists(game_states: &State<GameStoreState>, id: UuidGard) -> String {
+async fn game_exists(game_states: &State<GameStoreState>, id: UuidGard) -> Json<bool> {
     let id = id.0;
     if game_states.games.lock().await.contains_key(&id) {
         true
     } else {
         false
-    }
-    .to_string()
+    }.into()
 }
 
 #[get("/join_game/<id>")]
-async fn join_game(game_states: &State<GameStoreState>, id: UuidGard) -> String {
+async fn join_game(game_states: &State<GameStoreState>, id: UuidGard) -> Json<UserToken> {
     let id = id.0;
 
-    let games = game_states.games.lock().await;
+    let mut games = game_states.games.lock().await;
     let bot_games = game_states.bot_games.lock().await;
 
     let game = games.get(&id).unwrap();
@@ -74,7 +71,7 @@ async fn join_game(game_states: &State<GameStoreState>, id: UuidGard) -> String 
             }
             false
         })
-        .is_some();
+        .is_none();
 
     let mut user_token = UserToken {
         access_toket: Uuid::new_v4(),
@@ -95,39 +92,42 @@ async fn join_game(game_states: &State<GameStoreState>, id: UuidGard) -> String 
                 }
                 false
             })
-            .is_some();
+            .is_none();
 
         if join_secondary && bot_games.contains(&id) {
             user_token.side = Some(game.primary_side.not());
         }
     }
 
-    rocket::serde::json::to_string(&user_token).unwrap()
+    games.get_mut(&id).unwrap().clients.push(user_token.clone());
+
+    user_token.into()
 
 }
 
 
 
 
-#[get("/get_game_state/<id>")]
-async fn get_game_state(game_states: &State<GameStoreState>, id: UuidGard) -> String {
+#[get("/game_state/<id>")]
+async fn get_game_state(game_states: &State<GameStoreState>, id: UuidGard) -> Json<Vec<Option<Piece>>> {
     let id = id.0;
 
     let games = game_states.games.lock().await;
     let game = games.get(&id).unwrap();
     let board = Vec::from(game.board.clone());
 
-    rocket::serde::json::to_string(&board).unwrap();
-
-    todo!()
+    board.into()
 }
 
+//wait_for_game_state
 
 
-#[post("/move_piece", format = "json", data = "<piece_move>")]
-fn move_piece(game_states: &State<GameStoreState>, piece_move: Json<PieceMove>) -> String {
+
+#[put("/move_piece/<id>", format = "json", data = "<piece_move>")]
+fn move_piece(game_states: &State<GameStoreState>, id: UuidGard, piece_move: Json<PieceMove>) -> String {
     let piece_move = piece_move.0;
 
+    
 
     
 
@@ -135,6 +135,10 @@ fn move_piece(game_states: &State<GameStoreState>, piece_move: Json<PieceMove>) 
 
     todo!()
 }
+
+
+
+
 
 #[post("/init_setup", format = "json", data = "<init_state>")]
 fn init_setup(game_states: &State<GameStoreState>, init_state: Json<InitState>) -> String {
@@ -149,5 +153,35 @@ fn init_setup(game_states: &State<GameStoreState>, init_state: Json<InitState>) 
 }
 
 
+#[cfg(test)]
+mod test {
+    use crate::rocket;
+    use common::GameInfo;
+    use rocket::local::blocking::Client;
+    use rocket::http::Status;
+    use rocket::serde::json::Json;
+    use uuid::Uuid;
 
+    #[test]
+    fn game_connect() {
+        let client = Client::tracked(rocket()).expect("valid rocket instance");
+
+        let game_info = rocket::serde::json::to_string(&GameInfo {
+            vs_bot: false,
+            primary_side: common::Side::Red,
+        }).unwrap();
+
+        let mut response = client.post(uri!("/api", super::create_game)).body(game_info).dispatch();
+
+
+        assert_eq!(response.status(), Status::Ok);
+
+        let game_id: Uuid = response.into_json().unwrap();
+        //UserToken
+
+       // let mut response = client.get(uri!("/api", super::join_game: id = game_id)).body(game_info).dispatch();
+
+
+    }
+}
 

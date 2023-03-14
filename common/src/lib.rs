@@ -5,8 +5,10 @@ use uuid::Uuid;
 
 const BOARD_SIZE: usize = 10*10;
 
+pub type Board = [Option<Piece>; BOARD_SIZE];
+
 pub struct GameState {
-    pub board: [Option<Piece>; BOARD_SIZE],
+    pub board: Board,
     pub primary_side: Side,
     pub clients: Vec<UserToken>,
 }
@@ -68,7 +70,7 @@ pub struct GameInfo {
     pub primary_side: Side,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct UserToken {
     pub access_toket: Uuid,
     pub side: Option<Side>,
