@@ -1,4 +1,6 @@
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use strum::{EnumString, Display};
 use uuid::Uuid;
@@ -10,7 +12,9 @@ pub type Board = [Option<Piece>; BOARD_SIZE];
 pub struct GameState {
     pub board: Board,
     pub primary_side: Side,
-    pub clients: Vec<UserToken>,
+    pub clients: HashMap<Uuid, Option<Side>>,//Vec<UserToken>,
+    pub has_primary: bool,
+    pub has_secondary: bool,
 }
 
 impl GameState {
@@ -19,16 +23,11 @@ impl GameState {
         Self {
             board: [INIT; BOARD_SIZE],
             primary_side,
-            clients: Vec::new(),
+            clients: Default::default(),
+            has_primary: false,
+            has_secondary: false,
         }
     }
-}
-
-#[derive(Deserialize, Serialize, Clone)]
-pub struct Piece {
-    id: u8,
-    owner: Side,
-    piece_type: PieceType,
 }
 
 #[derive(PartialEq, Clone, Debug, EnumString, Display, Deserialize, Serialize)]
@@ -46,6 +45,13 @@ impl Side {
             Side::Blue => Side::Red,
         }
     }
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+pub struct Piece {
+    pub id: Uuid,
+    pub owner: Side,
+    pub piece_type: PieceType,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -87,5 +93,8 @@ pub struct PieceMove {
 
 #[derive(Deserialize, Serialize)]
 pub struct InitState {
-
+    pub access_token: Uuid,
+    pub pieces: [PieceType; 30],
 }
+
+pub enum 

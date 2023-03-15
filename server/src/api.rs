@@ -57,50 +57,30 @@ async fn join_game(game_states: &State<GameStoreState>, id: UuidGard) -> Json<Us
     let mut games = game_states.games.lock().await;
     let bot_games = game_states.bot_games.lock().await;
 
-    let game = games.get(&id).unwrap();
+    let mut game = games.get_mut(&id).unwrap();
 
-    let join_primary = game
-        .clients
-        .iter()
-        .find(|&x| {
-            if let Some(side) = &x.side {
-                if side == &game.primary_side {
-                    return true;
-                }
-            }
-            false
-        })
-        .is_none();
+  
 
-    let mut user_token = UserToken {
-        access_toket: Uuid::new_v4(),
-        side: None,
-    };
+    
+    let mut join_side = None;
 
-    if join_primary {
-        user_token.side = Some(game.primary_side.clone());
+    if !game.has_primary {
+        join_side = Some(game.primary_side.clone());
+        game.has_primary = true;
     } else {
-        let join_secondary = game
-            .clients
-            .iter()
-            .find(|&x| {
-                if let Some(side) = &x.side {
-                    if side == &game.primary_side.not() {
-                        return true;
-                    }
-                }
-                false
-            })
-            .is_none();
-
-        if join_secondary && bot_games.contains(&id) {
-            user_token.side = Some(game.primary_side.not());
+        if !game.has_secondary && bot_games.contains(&id) {
+            join_side = Some(game.primary_side.not());
+            game.has_secondary = true;
         }
     }
+    let user_id = Uuid::new_v4();
+    games.get_mut(&id).unwrap().clients.insert(user_id, join_side.clone());
 
-    games.get_mut(&id).unwrap().clients.push(user_token.clone());
 
-    user_token.into()
+    UserToken {
+        access_toket: user_id,
+        side: join_side,
+    }.into()
 
 }
 
@@ -108,14 +88,14 @@ async fn join_game(game_states: &State<GameStoreState>, id: UuidGard) -> Json<Us
 
 
 #[get("/game_state/<id>")]
-async fn get_game_state(game_states: &State<GameStoreState>, id: UuidGard) -> Json<Vec<Option<Piece>>> {
+async fn get_game_state(game_states: &State<GameStoreState>, id: UuidGard) -> Json<Option<Vec<Option<Piece>>>> {
     let id = id.0;
 
     let games = game_states.games.lock().await;
     let game = {
         let game = games.get(&id);
         if game.is_none() {
-            return rocket::serde::json::to_string(&None::<Vec<Piece>>).unwrap();
+            return Json::from(None);
         }
         game.unwrap()
     };
@@ -123,7 +103,7 @@ async fn get_game_state(game_states: &State<GameStoreState>, id: UuidGard) -> Js
     
     let board = Vec::from(game.board.clone());
 
-    board.into()
+    Some(board).into()
 }
 
 //wait_for_game_state
@@ -147,10 +127,30 @@ fn move_piece(game_states: &State<GameStoreState>, id: UuidGard, piece_move: Jso
 
 
 
-#[post("/init_setup", format = "json", data = "<init_state>")]
-fn init_setup(game_states: &State<GameStoreState>, init_state: Json<InitState>) -> String {
+#[post("/init_setup/<id>", format = "json", data = "<init_state>")]
+async fn init_setup(game_states: &State<GameStoreState>, id: UuidGard, init_state: Json<InitState>) -> String {
+    let id = id.0;
     let init_state = init_state.0;
 
+
+    //correct piece count
+
+
+    if let Some(game) = game_states.games.lock().await.get_mut(&id) {
+        if let Some(Some(side)) = game.clients.get(&init_state.access_token) {
+            for i in 0..30 {
+                let index = if side == &game.primary_side { 70 + i } else { 29 - i };
+                game.board[index] = Some(Piece {
+                    id: Uuid::new_v4(),
+                    owner: side.clone(),
+                    piece_type: init_state.pieces[i].clone(),
+                });
+            }
+        }
+    }
+
+
+    
     
     
 
