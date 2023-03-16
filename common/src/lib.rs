@@ -1,3 +1,4 @@
+mod game_logic;
 
 use std::collections::HashMap;
 
@@ -54,7 +55,7 @@ pub struct Piece {
     pub piece_type: PieceType,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, PartialEq, Display, Eq, Hash)]
 pub enum PieceType {
     Bomb,
     Marshal,
@@ -85,16 +86,22 @@ pub struct UserToken {
 
 #[derive(Deserialize, Serialize)]
 pub struct PieceMove {
-    access_token: Uuid,
-    piece_id: Uuid,
-    x: u8,
-    y: u8,
+    pub access_token: Uuid,
+    pub piece_id: Uuid,
+    pub x: u8,
+    pub y: u8,
 }
 
 #[derive(Deserialize, Serialize)]
 pub struct InitState {
     pub access_token: Uuid,
-    pub pieces: [PieceType; 30],
+    pub pieces: Vec<PieceType>//[PieceType; 40],
 }
-
-pub enum 
+#[derive(Deserialize, Serialize)]
+pub enum InitSetupReturn {
+    InvalidAccess,
+    IncorrectPieceCount,
+    Success,
+    UnknownFail,
+    GameDoesNotExist
+}

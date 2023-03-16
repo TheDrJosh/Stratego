@@ -20,7 +20,7 @@ impl<'a> FromParam<'a> for Route {
     }
 }
 
-#[get("/<_page>/<_..>", rank = 1)]
+#[get("/<_page>/<_..>")]
 async fn app_page(_page: Route) -> NamedFile {
     NamedFile::open("../web/dist/index.html")
         .await
