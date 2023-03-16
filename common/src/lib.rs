@@ -1,4 +1,4 @@
-mod game_logic;
+pub mod game_logic;
 
 use std::collections::HashMap;
 
@@ -88,8 +88,8 @@ pub struct UserToken {
 pub struct PieceMove {
     pub access_token: Uuid,
     pub piece_id: Uuid,
-    pub x: u8,
-    pub y: u8,
+    pub x: usize,
+    pub y: usize,
 }
 
 #[derive(Deserialize, Serialize)]

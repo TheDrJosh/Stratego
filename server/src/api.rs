@@ -9,6 +9,7 @@ use common::Piece;
 use common::PieceMove;
 use common::PieceType;
 use common::UserToken;
+use common::game_logic;
 use rocket::{serde::json::Json, tokio::sync::Mutex, Route, State};
 use uuid::Uuid;
 
@@ -126,22 +127,14 @@ async fn move_piece(
 
     if let Some(game) = game_states.games.lock().await.get_mut(&id) {
         if let Some(Some(side)) = game.clients.get(&piece_move.access_token) {
-            if let Some(piece) = game.board.iter().enumerate().find(|piece| {
-                if let Some(piece) = piece.1 {
+            if let Some(piece) = game.board.iter().find(|piece| {
+                if let Some(piece) = piece {
                     &piece.owner == side && piece.id == piece_move.piece_id
                 } else {
                     false
                 }
             }) {
-                let x = piece.0 % 10;
-                let y = piece.0 / 10;
-                let piece = piece.1.clone().unwrap();
-
-                //if x,y to piece_move.x,piece_move.y is valid 
-                {
-                    
-                }
-
+                game_logic::move_piece(&mut game.board, piece_move.piece_id, piece_move.x, piece_move.y)
             }
         }
     }
