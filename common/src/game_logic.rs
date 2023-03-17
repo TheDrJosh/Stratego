@@ -1,11 +1,15 @@
+use std::clone;
+
 use crate::{Board, Piece, PieceType};
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use uuid::Uuid;
 
-pub fn valid_move(board: &Board, id: Uuid, x: usize, y: usize) -> anyhow::Result<MoveResponse> {
+pub fn valid_move(board: &Board, id: Uuid, x: usize, y: usize) -> MoveResult {
     let piece_position = get_piece_position(board, id)?;
-    let piece = board[piece_position.0].clone().ok_or(anyhow::anyhow!(""))?;
-    if (x == piece_position.1 .0 && y == piece_position.1 .1) {
-        anyhow::bail!("No Move Needed");
+    let piece = board[piece_position.0].clone().unwrap();
+    if x == piece_position.1 .0 && y == piece_position.1 .1 {
+        Err(MoveError::NoMoveNeeded)?;
     }
 
     //grid constraints
@@ -15,11 +19,11 @@ pub fn valid_move(board: &Board, id: Uuid, x: usize, y: usize) -> anyhow::Result
             || (x == piece_position.1 .0 && y == piece_position.1 .1 + 1)
             || (x == piece_position.1 .0 && y == piece_position.1 .1 - 1))
         {
-            anyhow::bail!("Outside of Move Range");
+            Err(MoveError::OutsideOfMoveRange(x, y))?;
         }
     } else {
         if !(piece_position.1 .0 == x || piece_position.1 .1 == y) {
-            anyhow::bail!("Outside of Move Range");
+            Err(MoveError::OutsideOfMoveRange(x, y))?;
         }
         //scout constraints
         if piece_position.1 .0 == x {
@@ -32,7 +36,7 @@ pub fn valid_move(board: &Board, id: Uuid, x: usize, y: usize) -> anyhow::Result
                     }
                 }
                 if y < max_move {
-                    anyhow::bail!("Outside of Move Range");
+                    Err(MoveError::OutsideOfMoveRange(x, y))?;
                 }
             } else {
                 let mut max_move = 9;
@@ -43,7 +47,7 @@ pub fn valid_move(board: &Board, id: Uuid, x: usize, y: usize) -> anyhow::Result
                     }
                 }
                 if y > max_move {
-                    anyhow::bail!("Outside of Move Range");
+                    Err(MoveError::OutsideOfMoveRange(x, y))?;
                 }
             }
         } else {
@@ -56,7 +60,7 @@ pub fn valid_move(board: &Board, id: Uuid, x: usize, y: usize) -> anyhow::Result
                     }
                 }
                 if x < max_move {
-                    anyhow::bail!("Outside of Move Range");
+                    Err(MoveError::OutsideOfMoveRange(x, y))?;
                 }
             } else {
                 let mut max_move = 9;
@@ -67,22 +71,54 @@ pub fn valid_move(board: &Board, id: Uuid, x: usize, y: usize) -> anyhow::Result
                     }
                 }
                 if y > max_move {
-                    anyhow::bail!("Outside of Move Range");
+                    Err(MoveError::OutsideOfMoveRange(x, y))?;
                 }
             }
         }
     }
 
-    todo!()
+    // attack testing
+
+    if let Some(other_piece) = &board[x + y * 10] {
+        if piece.piece_type == other_piece.piece_type {
+            return Ok(MoveResponse::AttackFailureMutual(
+                other_piece.clone(),
+                piece,
+            ));
+        }
+
+        if piece.piece_type.triumphs(&other_piece.piece_type) {
+            return Ok(MoveResponse::AttackSuccess(other_piece.clone()));
+        }
+        return Ok(MoveResponse::AttackFailure(piece));
+    }
+
+    Ok(MoveResponse::Success)
 }
 
+pub type MoveResult = Result<MoveResponse, MoveError>;
+
+#[derive(Deserialize, Serialize)]
 pub enum MoveResponse {
     Success,
     AttackSuccess(Piece),
     AttackFailure(Piece),
+    AttackFailureMutual(Piece, Piece),
 }
 
-pub fn move_piece(board: &mut Board, id: Uuid, x: usize, y: usize) -> anyhow::Result<MoveResponse> {
+#[derive(Error, Debug, Deserialize, Serialize)]
+pub enum MoveError {
+    #[error("Outside of Board")]
+    OutsideOfBoard,
+    #[error("No Move Needed")]
+    NoMoveNeeded,
+    #[error("Outside of Move Range: ({0}, {1})")]
+    OutsideOfMoveRange(usize, usize),
+    #[error("Piece doesn't Exist: {0}")]
+    PieceDoesNotExist(Uuid),
+}
+
+pub fn move_piece(board: &mut Board, id: Uuid, x: usize, y: usize) -> MoveResult {
     let res = valid_move(board, id, x, y)?;
 
     let position = get_piece_position(board, id)?;
@@ -92,7 +128,7 @@ pub fn move_piece(board: &mut Board, id: Uuid, x: usize, y: usize) -> anyhow::Re
     Ok(res)
 }
 
-pub fn get_piece_position(board: &Board, id: Uuid) -> anyhow::Result<(usize, (usize, usize))> {
+pub fn get_piece_position(board: &Board, id: Uuid) -> Result<(usize, (usize, usize)), MoveError> {
     let piece = board
         .iter()
         .enumerate()
@@ -103,7 +139,7 @@ pub fn get_piece_position(board: &Board, id: Uuid) -> anyhow::Result<(usize, (us
                 false
             }
         })
-        .unwrap();
+        .ok_or(MoveError::OutsideOfBoard)?;
     let x = piece.0 % 10;
     let y = piece.0 / 10;
     Ok((piece.0, (x, y)))

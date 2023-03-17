@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use crate::util::UuidGard;
 use common::game_logic;
 use common::GameInfo;
 use common::GameState;
@@ -10,8 +9,12 @@ use common::Piece;
 use common::PieceMove;
 use common::PieceType;
 use common::UserToken;
+use common::game_logic::MoveError;
+use common::game_logic::MoveResult;
 use rocket::{serde::json::Json, tokio::sync::Mutex, Route, State};
 use uuid::Uuid;
+
+use crate::util::UuidGard;
 
 pub fn api() -> Vec<Route> {
     routes![
@@ -121,30 +124,25 @@ async fn move_piece(
     game_states: &State<GameStoreState>,
     id: UuidGard,
     piece_move: Json<PieceMove>,
-) -> String {
+) -> Json<MoveResult> {
     let id = id.0;
     let piece_move = piece_move.0;
 
     if let Some(game) = game_states.games.lock().await.get_mut(&id) {
         if let Some(Some(side)) = game.clients.get(&piece_move.access_token) {
-            if let Some(piece) = game.board.iter().find(|piece| {
+            if let Some(_piece) = game.board.iter().find(|piece| {
                 if let Some(piece) = piece {
                     &piece.owner == side && piece.id == piece_move.piece_id
                 } else {
                     false
                 }
             }) {
-                let t = game_logic::move_piece(
-                    &mut game.board,
-                    piece_move.piece_id,
-                    piece_move.x,
-                    piece_move.y,
-                );
+                return Json::from(game_logic::move_piece(&mut game.board, piece_move.piece_id, piece_move.x, piece_move.y));
             }
         }
     }
 
-    todo!()
+    Json::from(Err(MoveError::PieceDoesNotExist(piece_move.piece_id)))
 }
 
 #[post("/<id>/init_setup", format = "json", data = "<init_state>")]

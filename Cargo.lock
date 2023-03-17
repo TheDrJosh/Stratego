@@ -195,6 +195,7 @@ dependencies = [
  "anyhow",
  "serde",
  "strum",
+ "thiserror",
  "uuid",
 ]
 

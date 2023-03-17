@@ -1,6 +1,6 @@
 pub mod game_logic;
 
-use std::collections::HashMap;
+use std::{cmp::Ordering, collections::HashMap};
 
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
@@ -55,20 +55,39 @@ pub struct Piece {
     pub piece_type: PieceType,
 }
 
-#[derive(Deserialize, Serialize, Clone, PartialEq, Display, Eq, Hash)]
+#[derive(Deserialize, Serialize, Clone, PartialEq, Display, Eq, Hash, PartialOrd, Ord)]
 pub enum PieceType {
-    Bomb,
-    Marshal,
-    General,
-    Colonel,
-    Major,
-    Captain,
-    Lieutenant,
-    Sergeant,
-    Miner,
-    Scout,
-    Spy,
-    Flag,
+    Bomb = 11,
+    Marshal = 10,
+    General = 9,
+    Colonel = 8,
+    Major = 7,
+    Captain = 6,
+    Lieutenant = 5,
+    Sergeant = 4,
+    Miner = 3,
+    Scout = 2,
+    Spy = 1,
+    Flag = 0,
+}
+impl PieceType {
+    pub fn triumphs(&self, other: &Self) -> bool {
+        match self {
+            PieceType::Miner => {
+                if other == &PieceType::Bomb {
+                    return true;
+                }
+            }
+            PieceType::Spy => {
+                if other == &PieceType::Marshal {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+
+        self > other
+    }
 }
 
 #[derive(Clone, PartialEq, Deserialize, Serialize)]
