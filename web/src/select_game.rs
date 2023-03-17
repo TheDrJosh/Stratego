@@ -164,22 +164,22 @@ fn join_select(props: &Props) -> Html {
     let input_ref = use_node_ref();
     let callback = {
         let input_ref = input_ref.clone();
-        let navigator = use_navigator().unwrap();
         let state = state.clone();
+        let change_state = props.change_state.clone();
 
         Callback::from(move |_| {
+            let change_state = change_state.clone();
             let input = input_ref
                 .cast::<HtmlInputElement>()
                 .expect("input_ref not attachhed to element");
 
             match input.value().parse::<Uuid>() {
                 Ok(id) => {
-                    let navigator = navigator.clone();
                     let state = state.clone();
                     wasm_bindgen_futures::spawn_local(async move {
                         let exitsts = ask_game_exits(id).await.unwrap();
                         if exitsts {
-                            navigator.push(&Route::Game { id });
+                            change_state.emit(MenuState::JoinGameFriend(id));
                         } else {
                             state.set(true);
                         }
@@ -191,6 +191,7 @@ fn join_select(props: &Props) -> Html {
             };
         })
     };
+
 
     let invalid = if *state {
         html! {

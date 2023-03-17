@@ -1,6 +1,6 @@
 pub mod game_logic;
 
-use std::{cmp::Ordering, collections::HashMap};
+use std::{collections::HashMap};
 
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
