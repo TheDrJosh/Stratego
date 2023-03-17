@@ -5,9 +5,8 @@ use rocket::fs::{FileServer, Options};
 extern crate rocket;
 
 mod api;
-mod web_app;
 mod util;
-
+mod web_app;
 
 #[launch]
 fn rocket() -> _ {

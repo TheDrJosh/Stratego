@@ -29,4 +29,3 @@ impl<'a> FromParam<'a> for SideGard {
         }
     }
 }
-

@@ -62,7 +62,7 @@ pub fn select_game() -> Html {
             }
         }
         MenuState::NewGameFriend(side) => {
-            create_game(&navigator);
+            create_game(&navigator, side.clone());
             html! {
                 <Wait game_type={GameType::Friend} joining={false}/>
             }
@@ -278,10 +278,10 @@ fn join_random_game(navigator: &Navigator, team: &Side) {
     });
 }
 
-fn create_game(navigator: &Navigator) {
+fn create_game(navigator: &Navigator, team: Side) {
     let navigator = navigator.clone();
     wasm_bindgen_futures::spawn_local(async move {
-        let fetched: Uuid = send_game_request(Side::Red, false).await.unwrap();
+        let fetched: Uuid = send_game_request(team, false).await.unwrap();
         navigator.push(&Route::Game { id: fetched });
     });
 }
@@ -290,7 +290,7 @@ fn create_bot_game(navigator: &Navigator, team: &Side) {
     let navigator = navigator.clone();
     let team = team.not();
     wasm_bindgen_futures::spawn_local(async move {
-        let fetched: Uuid = send_game_request(Side::Red, true).await.unwrap();
+        let fetched: Uuid = send_game_request(team, true).await.unwrap();
         navigator.push(&Route::Game { id: fetched });
     });
 }

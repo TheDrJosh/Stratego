@@ -3,17 +3,17 @@ pub mod game_logic;
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-use strum::{EnumString, Display};
+use strum::{Display, EnumString};
 use uuid::Uuid;
 
-const BOARD_SIZE: usize = 10*10;
+const BOARD_SIZE: usize = 10 * 10;
 
 pub type Board = [Option<Piece>; BOARD_SIZE];
 
 pub struct GameState {
     pub board: Board,
     pub primary_side: Side,
-    pub clients: HashMap<Uuid, Option<Side>>,//Vec<UserToken>,
+    pub clients: HashMap<Uuid, Option<Side>>, //Vec<UserToken>,
     pub has_primary: bool,
     pub has_secondary: bool,
 }
@@ -83,7 +83,6 @@ pub struct UserToken {
     pub side: Option<Side>,
 }
 
-
 #[derive(Deserialize, Serialize)]
 pub struct PieceMove {
     pub access_token: Uuid,
@@ -95,7 +94,7 @@ pub struct PieceMove {
 #[derive(Deserialize, Serialize)]
 pub struct InitState {
     pub access_token: Uuid,
-    pub pieces: Vec<PieceType>//[PieceType; 40],
+    pub pieces: Vec<PieceType>, //[PieceType; 40],
 }
 #[derive(Deserialize, Serialize)]
 pub enum InitSetupReturn {
@@ -103,5 +102,5 @@ pub enum InitSetupReturn {
     IncorrectPieceCount,
     Success,
     UnknownFail,
-    GameDoesNotExist
+    GameDoesNotExist,
 }

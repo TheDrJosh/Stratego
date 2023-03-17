@@ -7,18 +7,17 @@ mod common_comps;
 mod home;
 mod select_game;
 
-
 fn switch(routes: Route) -> Html {
     match routes {
-        Route::Home => html!{
+        Route::Home => html! {
             <Home/>
         },
-        Route::GameSelect => html!{
+        Route::GameSelect => html! {
             html! {
                 <SelectGame/>
             }
         },
-        Route::Game{ id } => html! {
+        Route::Game { id } => html! {
             <h1>{format!("Game {id}")}</h1>
         },
         Route::NotFound => html! {

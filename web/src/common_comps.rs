@@ -3,7 +3,6 @@ use uuid::Uuid;
 use yew::prelude::*;
 use yew_router::prelude::*;
 
-
 #[derive(Clone, Routable, PartialEq)]
 pub enum Route {
     #[at("/")]
@@ -11,12 +10,11 @@ pub enum Route {
     #[at("/select")]
     GameSelect,
     #[at("/Game/:id")]
-    Game {id: Uuid},
+    Game { id: Uuid },
     #[not_found]
     #[at("/404")]
     NotFound,
 }
-
 
 #[function_component(Acount)]
 pub fn acount() -> Html {
@@ -33,7 +31,6 @@ pub fn acount() -> Html {
         </acount>
     }
 }
-
 
 #[function_component(Header)]
 pub fn header() -> Html {

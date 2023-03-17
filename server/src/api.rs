@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::util::UuidGard;
+use common::game_logic;
 use common::GameInfo;
 use common::GameState;
 use common::InitSetupReturn;
@@ -9,7 +10,6 @@ use common::Piece;
 use common::PieceMove;
 use common::PieceType;
 use common::UserToken;
-use common::game_logic;
 use rocket::{serde::json::Json, tokio::sync::Mutex, Route, State};
 use uuid::Uuid;
 
@@ -134,7 +134,12 @@ async fn move_piece(
                     false
                 }
             }) {
-                game_logic::move_piece(&mut game.board, piece_move.piece_id, piece_move.x, piece_move.y)
+                let t = game_logic::move_piece(
+                    &mut game.board,
+                    piece_move.piece_id,
+                    piece_move.x,
+                    piece_move.y,
+                );
             }
         }
     }

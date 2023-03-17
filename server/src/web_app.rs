@@ -1,4 +1,4 @@
-use rocket::{request::FromParam, fs::NamedFile};
+use rocket::{fs::NamedFile, request::FromParam};
 
 pub fn web_app() -> Vec<rocket::Route> {
     routes![app, app_page]
