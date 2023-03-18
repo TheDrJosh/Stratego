@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
+use common::BoardStateSendible;
 use common::game_logic;
+use common::game_logic::MoveError;
+use common::game_logic::MoveResult;
 use common::GameInfo;
 use common::GameState;
 use common::InitSetupReturn;
@@ -9,11 +12,12 @@ use common::Piece;
 use common::PieceMove;
 use common::PieceType;
 use common::UserToken;
-use common::game_logic::MoveError;
-use common::game_logic::MoveResult;
+use rocket::response::status;
+use rocket::response::status::NotFound;
 use rocket::{serde::json::Json, tokio::sync::Mutex, Route, State};
 use uuid::Uuid;
 
+use crate::util::SideGard;
 use crate::util::UuidGard;
 
 pub fn api() -> Vec<Route> {
@@ -100,21 +104,21 @@ async fn join_game(game_states: &State<GameStoreState>, id: UuidGard) -> Json<Us
 async fn get_game_state(
     game_states: &State<GameStoreState>,
     id: UuidGard,
-) -> Json<Option<Vec<Option<Piece>>>> {
+) -> Result<Json<BoardStateSendible>, NotFound<String>> {
     let id = id.0;
 
     let games = game_states.games.lock().await;
     let game = {
         let game = games.get(&id);
-        if game.is_none() {
-            return Json::from(None);
-        }
-        game.unwrap()
+        game.ok_or(status::NotFound("Game does not exist!".to_owned()))
+    }?;
+
+    let board_state = BoardStateSendible {
+        board: Vec::from(game.board.clone()),
+        active_side: game.active_side.clone(),
     };
 
-    let board = Vec::from(game.board.clone());
-
-    Some(board).into()
+    Ok(board_state.into())
 }
 
 //wait_for_game_state
@@ -137,7 +141,12 @@ async fn move_piece(
                     false
                 }
             }) {
-                return Json::from(game_logic::move_piece(&mut game.board, piece_move.piece_id, piece_move.x, piece_move.y));
+                return Json::from(game_logic::move_piece(
+                    &mut game.board,
+                    piece_move.piece_id,
+                    piece_move.x,
+                    piece_move.y,
+                ));
             }
         }
     }
@@ -201,4 +210,11 @@ async fn init_setup(
     }
 
     Json::from(InitSetupReturn::UnknownFail)
+}
+
+#[get("/join_random/<side>", format = "json")]
+async fn join_random_game(game_states: &State<GameStoreState>, side: SideGard) -> Json<(Uuid, UserToken)> {
+
+
+    todo!()
 }

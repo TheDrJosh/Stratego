@@ -1,5 +1,8 @@
 pub mod game_logic;
 
+#[cfg(feature = "client")]
+pub mod request;
+
 use std::{collections::HashMap};
 
 use serde::{Deserialize, Serialize};
@@ -10,23 +13,29 @@ const BOARD_SIZE: usize = 10 * 10;
 
 pub type Board = [Option<Piece>; BOARD_SIZE];
 
+pub fn empty_board() -> Board {
+    const INIT: Option<Piece> = None;
+    [INIT; BOARD_SIZE]
+}
+
 pub struct GameState {
     pub board: Board,
     pub primary_side: Side,
     pub clients: HashMap<Uuid, Option<Side>>, //Vec<UserToken>,
     pub has_primary: bool,
     pub has_secondary: bool,
+    pub active_side: Side,
 }
 
 impl GameState {
     pub fn new(primary_side: Side) -> Self {
-        const INIT: Option<Piece> = None;
         Self {
-            board: [INIT; BOARD_SIZE],
-            primary_side,
+            board: empty_board(),
+            primary_side: primary_side.clone(),
             clients: Default::default(),
             has_primary: false,
             has_secondary: false,
+            active_side: primary_side,
         }
     }
 }
@@ -70,6 +79,7 @@ pub enum PieceType {
     Spy = 1,
     Flag = 0,
 }
+
 impl PieceType {
     pub fn triumphs(&self, other: &Self) -> bool {
         match self {
@@ -122,4 +132,15 @@ pub enum InitSetupReturn {
     Success,
     UnknownFail,
     GameDoesNotExist,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct BoardStateSendible {
+    pub board: Vec<Option<Piece>>,
+    pub active_side: Side,
+}
+
+pub struct BoardState {
+    pub board: Board,
+    pub active_side: Side,
 }

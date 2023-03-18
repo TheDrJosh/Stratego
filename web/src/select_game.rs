@@ -1,4 +1,4 @@
-use common::{GameInfo, Side};
+use common::{GameInfo, Side, request::{join_game, self}};
 use gloo_net::http::Request;
 use uuid::Uuid;
 use web_sys::HtmlInputElement;
@@ -36,6 +36,8 @@ pub fn select_game() -> Html {
 
     let navigator = use_navigator().unwrap();
 
+
+
     match &*menu_state {
         MenuState::GameSelect => html! {
             <GameSelect {change_state}/>
@@ -50,19 +52,34 @@ pub fn select_game() -> Html {
             <JoinSelect {change_state}/>
         },
         MenuState::GameRandom(side) => {
-            join_random_game(&navigator, side);
+            let side = side.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                let navigator = navigator.clone();
+                let game_id = request::join_random_game(side).await.unwrap();
+                navigator.push(&Route::Game { id: game_id });
+            });
             html! {
                 <Wait game_type={GameType::Random} />
             }
         }
         MenuState::GameComputer(side) => {
-            create_bot_game(&navigator, side);
+            let side = side.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                let navigator = navigator.clone();
+                let game_id = request::create_game(GameInfo { vs_bot: true, primary_side: side }).await.unwrap();
+                navigator.push(&Route::Game { id: game_id });
+            });
             html! {
                 <Wait game_type={GameType::Computer} />
             }
         }
         MenuState::NewGameFriend(side) => {
-            create_game(&navigator, side.clone());
+            let side = side.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                let navigator = navigator.clone();
+                let gameid = request::create_game(GameInfo { vs_bot: false, primary_side: side }).await.unwrap();
+                navigator.push(&Route::Game { id: gameid });
+            });
             html! {
                 <Wait game_type={GameType::Friend} joining={false}/>
             }
@@ -177,7 +194,7 @@ fn join_select(props: &Props) -> Html {
                 Ok(id) => {
                     let state = state.clone();
                     wasm_bindgen_futures::spawn_local(async move {
-                        let exitsts = ask_game_exits(id).await.unwrap();
+                        let exitsts = request::game_exists(id).await.unwrap();
                         if exitsts {
                             change_state.emit(MenuState::JoinGameFriend(id));
                         } else {
@@ -259,71 +276,7 @@ fn back(props: &BackProps) -> Html {
     }
 }
 
-fn join_random_game(navigator: &Navigator, team: &Side) {
-    let navigator = navigator.clone();
-    let team = team.clone();
-    wasm_bindgen_futures::spawn_local(async move {
-        let fetched: Uuid = Request::get(&format!(
-            "http://127.0.0.1:8000/api/join_random_game/{}",
-            team
-        ))
-        .send()
-        .await
-        .unwrap()
-        .text()
-        .await
-        .unwrap()
-        .parse()
-        .unwrap();
-        navigator.push(&Route::Game { id: fetched });
-    });
-}
 
-fn create_game(navigator: &Navigator, team: Side) {
-    let navigator = navigator.clone();
-    wasm_bindgen_futures::spawn_local(async move {
-        let fetched: Uuid = send_game_request(team, false).await.unwrap();
-        navigator.push(&Route::Game { id: fetched });
-    });
-}
-
-fn create_bot_game(navigator: &Navigator, team: &Side) {
-    let navigator = navigator.clone();
-    let team = team.not();
-    wasm_bindgen_futures::spawn_local(async move {
-        let fetched: Uuid = send_game_request(team, true).await.unwrap();
-        navigator.push(&Route::Game { id: fetched });
-    });
-}
-
-async fn send_game_request(primary_side: Side, vs_bot: bool) -> anyhow::Result<Uuid> {
-    let game_info = GameInfo {
-        vs_bot,
-        primary_side,
-    };
-
-    let fetched = Request::post("http://127.0.0.1:8000/api/create_game")
-        .json(&game_info)?
-        .send()
-        .await?
-        .text()
-        .await?
-        .parse::<Uuid>()?;
-
-    Ok(fetched)
-}
-
-async fn ask_game_exits(id: Uuid) -> anyhow::Result<bool> {
-    let fetched =
-        Request::get(format!("http://127.0.0.1:8000/api/game_exists/{}", id.to_string()).as_str())
-            .send()
-            .await?
-            .text()
-            .await?
-            .parse::<bool>()?;
-
-    Ok(fetched)
-}
 
 /*
 1. game_select -> 1. freind_select | 2. team_select(rand) | 3. team_select(comp)
