@@ -2,8 +2,8 @@ use gloo_net::http::Request;
 use uuid::Uuid;
 
 use crate::{
-    empty_board, game_logic::{MoveResult}, Board, BoardState, BoardStateSendible, GameInfo,
-    PieceMove, UserToken, BOARD_SIZE, InitState, InitSetupReturn, Side,
+    empty_board, game_logic::MoveResult, Board, BoardState, BoardStateSendible, GameInfo,
+    InitSetupReturn, InitState, PieceMove, Side, UserToken, BOARD_SIZE,
 };
 
 pub async fn create_game(game_info: GameInfo) -> anyhow::Result<Uuid> {
@@ -32,24 +32,27 @@ pub async fn join_game(id: Uuid) -> anyhow::Result<UserToken> {
     let fetched =
         Request::get(format!("http://127.0.0.1:8000/api/{}/join", id.to_string()).as_str())
             .send()
-            .await?
-            .json()
             .await?;
+    let fetched = if fetched.ok() {
+        fetched.json().await?
+    } else {
+        anyhow::bail!(fetched.text().await?);
+    };
 
     Ok(fetched)
 }
 
 pub async fn join_random_game(side: Side) -> anyhow::Result<Uuid> {
-    let fetched =
-        Request::get(format!("http://127.0.0.1:8000/api/join_random/{}", side.to_string()).as_str())
-            .send()
-            .await?
-            .json()
-            .await?;
+    let fetched = Request::get(
+        format!("http://127.0.0.1:8000/api/join_random/{}", side.to_string()).as_str(),
+    )
+    .send()
+    .await?
+    .json()
+    .await?;
 
     Ok(fetched)
 }
-
 
 pub async fn get_game_state(id: Uuid) -> anyhow::Result<BoardState> {
     let fetched: BoardStateSendible =
@@ -74,23 +77,25 @@ pub async fn get_game_state(id: Uuid) -> anyhow::Result<BoardState> {
 }
 
 pub async fn move_piece(id: Uuid, piece_move: PieceMove) -> anyhow::Result<MoveResult> {
-    let fetched = Request::put(format!("http://127.0.0.1:8000/api/{}/move_piece", id.to_string()).as_str())
-        .json(&piece_move)?
-        .send()
-        .await?
-        .json()
-        .await?;
+    let fetched =
+        Request::put(format!("http://127.0.0.1:8000/api/{}/move_piece", id.to_string()).as_str())
+            .json(&piece_move)?
+            .send()
+            .await?
+            .json()
+            .await?;
 
     Ok(fetched)
 }
 
 pub async fn init_setup(id: Uuid, init_state: InitState) -> anyhow::Result<InitSetupReturn> {
-    let fetched = Request::post(format!("http://127.0.0.1:8000/api/{}/init_setup", id.to_string()).as_str())
-        .json(&init_state)?
-        .send()
-        .await?
-        .json()
-        .await?;
+    let fetched =
+        Request::post(format!("http://127.0.0.1:8000/api/{}/init_setup", id.to_string()).as_str())
+            .json(&init_state)?
+            .send()
+            .await?
+            .json()
+            .await?;
 
     Ok(fetched)
 }

@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 yew = { version = "0.20.0", features = ["csr"] }
 yew-router = "0.17"
+yew-hooks = "0.2.0"
 common = { path="../common", features = ["client"] }
 gloo-net = "0.2"
 wasm-bindgen-futures = "0.4"

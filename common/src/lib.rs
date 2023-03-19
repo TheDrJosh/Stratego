@@ -106,7 +106,7 @@ pub struct GameInfo {
     pub primary_side: Side,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct UserToken {
     pub access_toket: Uuid,
     pub side: Option<Side>,
