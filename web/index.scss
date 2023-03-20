@@ -159,8 +159,8 @@ game {
         display: grid;
         align-content: stretch;
         max-height: 75%;
-        aspect-ratio: 1 / 1;
         max-width: 50%;
+        aspect-ratio: 1 / 1;
         align-self: center;
         background-image: url("assets/temp/board.png");
         background-repeat: no-repeat;
@@ -189,6 +189,7 @@ game {
         width: 75%;
         piece_box {
             flex: 1;
+            max-width: 1fr;
         }
     }
     

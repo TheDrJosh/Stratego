@@ -44,8 +44,12 @@ pub fn game(props: &Props) -> Html {
                     <Board/>
                     {
                         if state.setup {
-                            html! {
-                                <SetupBar />
+                            if let Some(side) = &user_access.side {
+                                html! {
+                                    <SetupBar side={side.clone()} />
+                                }
+                            } else {
+                                html!{}
                             }
                         } else {
                             html!{}
@@ -112,15 +116,18 @@ fn piece(props: &PieceProps) -> Html {
     }
 }
 
+#[derive(Properties, PartialEq)]
+pub struct SetupBarProps {
+    side: Side,
+}
+
 #[function_component(SetupBar)]
-fn setup_bar() -> Html {
+fn setup_bar(props: &SetupBarProps) -> Html {
     let mut pieces = Vec::new();
     for piece_type in PieceType::iter() {
         pieces.push(html! {
             <piece_box>
-                <placeholder>
-                    {piece_type.to_string()}
-                </placeholder>
+                <img src={format!("/static/assets/temp/{}/{} {}.webp", props.side.to_string(), props.side.to_string(), piece_type.to_string().to_lowercase())}/>
                 <count>
                     {"5"}
                 </count>
