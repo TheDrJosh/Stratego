@@ -6,7 +6,7 @@ pub mod request;
 use std::{collections::HashMap};
 
 use serde::{Deserialize, Serialize};
-use strum::{Display, EnumString};
+use strum::{Display, EnumString, EnumIter};
 use uuid::Uuid;
 
 const BOARD_SIZE: usize = 10 * 10;
@@ -41,10 +41,9 @@ impl GameState {
 }
 
 #[derive(PartialEq, Clone, Debug, EnumString, Display, Deserialize, Serialize)]
+#[strum(serialize_all = "snake_case")]
 pub enum Side {
-    #[strum(serialize = "red")]
     Red,
-    #[strum(serialize = "blue")]
     Blue,
 }
 
@@ -64,7 +63,7 @@ pub struct Piece {
     pub piece_type: PieceType,
 }
 
-#[derive(Deserialize, Serialize, Clone, PartialEq, Display, Eq, Hash, PartialOrd, Ord)]
+#[derive(Deserialize, Serialize, Clone, PartialEq, Display, Eq, Hash, PartialOrd, Ord, EnumIter)]
 pub enum PieceType {
     Bomb = 11,
     Marshal = 10,

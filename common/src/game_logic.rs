@@ -6,8 +6,27 @@ use uuid::Uuid;
 pub fn valid_move(board: &Board, id: Uuid, x: usize, y: usize) -> MoveResult {
     let piece_position = get_piece_position(board, id)?;
     let piece = board[piece_position.0].clone().unwrap();
+
+    //same position
     if x == piece_position.1 .0 && y == piece_position.1 .1 {
         Err(MoveError::NoMoveNeeded)?;
+    }
+
+    //water
+    if match (x, y) {
+        //left
+        (2, 4) => true,
+        (3, 4) => true,
+        (2, 5) => true,
+        (3, 5) => true,
+        //right
+        (6, 4) => true,
+        (7, 4) => true,
+        (6, 5) => true,
+        (7, 5) => true,
+        _ => false,
+    } {
+        return Err(MoveError::InvalidLocation)
     }
 
     //grid constraints
@@ -91,6 +110,9 @@ pub fn valid_move(board: &Board, id: Uuid, x: usize, y: usize) -> MoveResult {
         return Ok(MoveResponse::AttackFailure(piece));
     }
 
+
+
+
     Ok(MoveResponse::Success)
 }
 
@@ -106,8 +128,8 @@ pub enum MoveResponse {
 
 #[derive(Error, Debug, Deserialize, Serialize)]
 pub enum MoveError {
-    #[error("Outside of Board")]
-    OutsideOfBoard,
+    #[error("Invalid Location")]
+    InvalidLocation,
     #[error("No Move Needed")]
     NoMoveNeeded,
     #[error("Outside of Move Range: ({0}, {1})")]
@@ -137,7 +159,7 @@ pub fn get_piece_position(board: &Board, id: Uuid) -> Result<(usize, (usize, usi
                 false
             }
         })
-        .ok_or(MoveError::OutsideOfBoard)?;
+        .ok_or(MoveError::InvalidLocation)?;
     let x = piece.0 % 10;
     let y = piece.0 / 10;
     Ok((piece.0, (x, y)))

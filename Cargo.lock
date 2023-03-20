@@ -1978,6 +1978,7 @@ dependencies = [
  "log",
  "serde",
  "serde_json",
+ "strum",
  "uuid",
  "wasm-bindgen-futures",
  "web-sys",

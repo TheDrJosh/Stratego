@@ -28,8 +28,10 @@ pub fn api() -> Vec<Route> {
         game_exists,
         join_game,
         get_game_state,
+        get_game_state_changed,
         move_piece,
-        init_setup
+        init_setup,
+        join_random_game
     ]
 }
 
@@ -265,7 +267,7 @@ async fn init_setup(
     Json::from(InitSetupReturn::UnknownFail)
 }
 
-#[get("/join_random/<side>", format = "json")]
+#[get("/join_random/<side>", format = "json", rank=1)]
 async fn join_random_game(
     game_states: &State<GameStoreState>,
     side: SideGard,
