@@ -173,10 +173,14 @@ fn setup_game(props: &SetupGameProps) -> Html {
     };
 
     let mut count = (*board_state).count();
+    let mut finishable = true;
 
     for piece_type in PieceType::iter() {
         count.insert(piece_type.clone(), piece_type.starting_count() - count[&piece_type]);
+        finishable &= piece_type.starting_count() == count[&piece_type];
     }
+
+
     
 
     html! {
