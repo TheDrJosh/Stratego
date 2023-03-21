@@ -1,5 +1,4 @@
-use common::{GameInfo, Side, request::{join_game, self}};
-use gloo_net::http::Request;
+use common::{GameInfo, Side, request};
 use uuid::Uuid;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;

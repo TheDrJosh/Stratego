@@ -56,14 +56,14 @@ impl Side {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, PartialEq)]
 pub struct Piece {
     pub id: Uuid,
     pub owner: Side,
     pub piece_type: PieceType,
 }
 
-#[derive(Deserialize, Serialize, Clone, PartialEq, Display, Eq, Hash, PartialOrd, Ord, EnumIter)]
+#[derive(Deserialize, Serialize, Clone, PartialEq, Display, Eq, Hash, PartialOrd, Ord, EnumIter, Debug)]
 pub enum PieceType {
     Bomb = 11,
     Marshal = 10,
