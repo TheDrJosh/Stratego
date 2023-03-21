@@ -2,8 +2,8 @@ use gloo_net::http::Request;
 use uuid::Uuid;
 
 use crate::{
-    empty_board, game_logic::MoveResult, Board, BoardState, BoardStateSendible, GameInfo,
-    InitSetupReturn, InitState, PieceMove, Side, UserToken, BOARD_SIZE,
+    game_logic::MoveResult, Board, BoardState, GameInfo, InitSetupReturn, InitState, PieceMove,
+    Side, UserToken, BOARD_SIZE,
 };
 
 pub async fn create_game(game_info: GameInfo) -> anyhow::Result<Uuid> {
@@ -59,24 +59,13 @@ pub async fn get_game_state(id: Uuid) -> anyhow::Result<BoardState> {
         Request::get(format!("http://127.0.0.1:8000/api/{}/game_state", id.to_string()).as_str())
             .send()
             .await?;
-    let fetched: BoardStateSendible = if fetched.ok() {
+    let fetched: BoardState = if fetched.ok() {
         fetched.json().await?
     } else {
         anyhow::bail!(fetched.text().await?);
     };
 
-    if fetched.board.len() != BOARD_SIZE {
-        anyhow::bail!("Receved Board of Unconpadible Size");
-    }
-    let mut board: Board = empty_board();
-    for piece in 0..BOARD_SIZE {
-        board[piece] = fetched.board[piece].clone();
-    }
-
-    Ok(BoardState {
-        board: board,
-        active_side: fetched.active_side,
-    })
+    Ok(fetched)
 }
 
 pub async fn get_game_state_changed(id: Uuid) -> anyhow::Result<BoardState> {
@@ -84,24 +73,13 @@ pub async fn get_game_state_changed(id: Uuid) -> anyhow::Result<BoardState> {
         Request::get(format!("http://127.0.0.1:8000/api/{}/game_state", id.to_string()).as_str())
             .send()
             .await?;
-    let fetched: BoardStateSendible = if fetched.ok() {
+    let fetched: BoardState = if fetched.ok() {
         fetched.json().await?
     } else {
         anyhow::bail!(fetched.text().await?);
     };
 
-    if fetched.board.len() != BOARD_SIZE {
-        anyhow::bail!("Receved Board of incompadible Size");
-    }
-    let mut board: Board = empty_board();
-    for piece in 0..BOARD_SIZE {
-        board[piece] = fetched.board[piece].clone();
-    }
-
-    Ok(BoardState {
-        board: board,
-        active_side: fetched.active_side,
-    })
+    Ok(fetched)
 }
 
 pub async fn move_piece(id: Uuid, piece_move: PieceMove) -> anyhow::Result<MoveResult> {

@@ -1,3 +1,6 @@
+use std::borrow::BorrowMut;
+use std::sync::Mutex;
+
 use common::{request, PieceType, Side, empty_board};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
@@ -103,54 +106,78 @@ struct SetupGameProps {
     side: Side,
 }
 
-struct SetupGameState {
-    board: common::Board,
-    selected_piece: Option<PieceType>,
-}
-
 
 #[function_component(SetupGame)]
 fn setup_game(props: &SetupGameProps) -> Html {
 
-    let state = use_state(|| SetupGameState {
-        board: empty_board(),
-        selected_piece: None,
-    });
+    let board_state = use_state(|| empty_board());
+    let selected_piece_state = use_state(|| Option::<PieceType>::None);
 
-    use_effect(move || {
-        let document = gloo::utils::document();
-        let state = state.clone();
+    {
+        let selected_piece_state = selected_piece_state.clone();
+        use_effect(move || {
+            let document = gloo::utils::document();
+            
+            let listener = gloo::events::EventListener::new(&document, "keydown", move |event| {
+                let event = event.dyn_ref::<web_sys::KeyboardEvent>().unwrap_throw();
+                if event.key_code() == 27 { //Escape
+                    selected_piece_state.set(None);
+                }
+            });
 
-        let listener = gloo::events::EventListener::new(&document, "keydown", |event| {
-            let event = event.dyn_ref::<web_sys::KeyboardEvent>().unwrap_throw();
-            if event.key_code() == 27 { //Escape
-                state.set(SetupGameState {
-                    board: state.board,
-                    selected_piece: None,
-                });
-            }
+            || drop(listener)
         });
-
-        || drop(listener)
-    });
+    }
 
     
 
     
 
-    let bar_callback = Callback::from(|t| {
-        log::info!("setup game; bar callback: {:?}", t);
-    });
-    let board_callback = Callback::from(move |e| {
-        log::info!("setup game; board callback: {:?}", e);
-    });
+    let bar_callback = {
+        let selected_piece_state = selected_piece_state.clone();
+        Callback::from(move |piece_type| {
+            selected_piece_state.set(Some(piece_type));
+        })
+    };
+    let board_callback = {
+        let board_state = board_state.clone();
+        let side = props.side.clone();
+        let selected_piece_state = selected_piece_state.clone();
+
+        Callback::from(move |e| {
+            let (x, y, event): (usize, usize, MouseEvent) = e;
+            let mut board = (*board_state).clone();
+            event.prevent_default();
+
+            gloo::console::log!(event.button());
+
+            
+            if event.button() == 0 {
+                if let Some(piece) = &(*selected_piece_state) {
+                    board[x + y * 10] = Some(common::Piece {
+                        id: Uuid::new_v4(),
+                        owner: side.clone(),
+                        piece_type: piece.clone(),
+                    });
+                }
+                
+            } else {
+                if event.button() == 3 {
+                    board[x + y * 10] = None;
+                }
+            }
+
+            board_state.set(board);
+
+        })
+    };
 
     
 
     html! {
         <game>
-            <Board on_click={board_callback} board={state.board.clone()}/>
-            <SetupBar side={props.side.clone()} type_select={bar_callback} />
+            <Board on_click={board_callback} board={(*board_state).clone()}/>
+            <SetupBar side={props.side.clone()} type_select={bar_callback} selected_type={(*selected_piece_state).clone()}/>
         </game>
     }
 }
@@ -180,11 +207,11 @@ fn board(props: &BoardProps) -> Html {
         };
         if let Some(piece) = &props.board[i] {
             pieces.push(html! {
-                <Piece side={Side::Red} piece_type={piece.piece_type.clone()} {x} {y} on_click={callback}/>
+                <Piece side={piece.owner.clone()} piece_type={piece.piece_type.clone()} {x} {y} on_click={callback}/>
             });
         } else {
             pieces.push(html! {
-                <empty style={format!("grid-column: {}; grid-row: {};", x + 1, y + 1)} onclick={callback}/>
+                <empty style={format!("grid-column: {}; grid-row: {};", x + 1, y + 1)} onclick={callback.clone()} oncontextmenu={callback} />
             });
         }
     }
@@ -202,20 +229,22 @@ pub struct PieceProps {
     piece_type: PieceType,
     x: usize,
     y: usize,
-    //#[prop_or_default]
     on_click: Callback<MouseEvent>,
 }
 
 #[function_component(Piece)]
 fn piece(props: &PieceProps) -> Html {
     html! {
-        <img onclick={props.on_click.clone()} style={format!("grid-column: {}; grid-row: {};", props.x + 1, props.y + 1)} src={format!("/static/assets/temp/{} {}.webp", props.side.to_string(), props.piece_type.to_string().to_lowercase())}/>
+        <piece>
+            <img onclick={props.on_click.clone()} oncontextmenu={props.on_click.clone()} style={format!("grid-column: {}; grid-row: {};", props.x + 1, props.y + 1)} src={format!("/static/assets/temp/{} {}.webp", props.side.to_string(), props.piece_type.to_string().to_lowercase())}/>
+        </piece>
     }
 }
 
 #[derive(Properties, PartialEq)]
 pub struct SetupBarProps {
     side: Side,
+    selected_type: Option<PieceType>,
     type_select: Callback<PieceType>
 }
 
@@ -234,15 +263,23 @@ fn setup_bar(props: &SetupBarProps) -> Html {
             })
         };
 
+        let class = if Some(piece_type.clone()) == props.selected_type {
+            classes!("selected")
+        } else {
+            classes!()
+        };
 
         pieces.push(html! {
-            <piece_box onclick={callback}>
-                <img src={format!("/static/assets/temp/{} {}.webp", props.side.to_string(), piece_type.to_string().to_lowercase())}/>
+            <piece_box onclick={callback} class={class}>
+                <piece>
+                    <img src={format!("/static/assets/temp/{} {}.webp", props.side.to_string(), piece_type.to_string().to_lowercase())}/>
+                </piece>
                 
                 <text>
                     <name>
                         {piece_type.to_string()}
                     </name>
+                    <spacer/>
                     <count>
                         {"5"}
                     </count>

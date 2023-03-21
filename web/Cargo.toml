@@ -14,7 +14,7 @@ gloo = "0.8"
 wasm-bindgen-futures = "0.4"
 console_log = { version = "1.0.0", features = ["color"] }
 log = "0.4.17"
-web-sys = { version = "0.3.61", features = ["HtmlInputElement"] }
+web-sys = { version = "0.3.61", features = ["HtmlInputElement", "Event", "MouseEvent"] }
 serde = { version = "1.0.153", features = ["derive"] }
 uuid = { version = "1.3.0", features = ["v4", "js"] }
 anyhow = "1.0"
