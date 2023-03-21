@@ -1,7 +1,6 @@
-use std::borrow::BorrowMut;
-use std::sync::Mutex;
+use std::collections::HashMap;
 
-use common::{request, PieceType, Side, empty_board};
+use common::{request, PieceType, Side};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
 use yew::prelude::*;
@@ -86,7 +85,7 @@ struct GameLogicState {
 fn game_logic() -> Html {
 
     let state = use_state(|| GameLogicState {
-        board: empty_board(),
+        board: common::Board::new(),
     });
 
     let callback = Callback::from(move |e| {
@@ -110,7 +109,7 @@ struct SetupGameProps {
 #[function_component(SetupGame)]
 fn setup_game(props: &SetupGameProps) -> Html {
 
-    let board_state = use_state(|| empty_board());
+    let board_state = use_state(|| common::Board::new());
     let selected_piece_state = use_state(|| Option::<PieceType>::None);
 
     {
@@ -149,35 +148,41 @@ fn setup_game(props: &SetupGameProps) -> Html {
             let mut board = (*board_state).clone();
             event.prevent_default();
 
-            gloo::console::log!(event.button());
-
-            
-            if event.button() == 0 {
-                if let Some(piece) = &(*selected_piece_state) {
-                    board[x + y * 10] = Some(common::Piece {
-                        id: Uuid::new_v4(),
-                        owner: side.clone(),
-                        piece_type: piece.clone(),
-                    });
-                }
+            if y >= 6 {
                 
-            } else {
-                if event.button() == 3 {
-                    board[x + y * 10] = None;
+                if event.button() == 0 {
+                    if let Some(piece) = &(*selected_piece_state) {
+                        let count = (*board_state).count();
+                        if count[&piece] < piece.starting_count() {
+                            board.set(x, y, Some(common::Piece {
+                                id: Uuid::new_v4(),
+                                owner: side.clone(),
+                                piece_type: piece.clone(),
+                            }));
+                        }
+                        
+                    }
+                    
+                } else {
+                    board.set(x, y, None);
                 }
+                board_state.set(board);
             }
-
-            board_state.set(board);
 
         })
     };
 
+    let mut count = (*board_state).count();
+
+    for piece_type in PieceType::iter() {
+        count.insert(piece_type.clone(), piece_type.starting_count() - count[&piece_type]);
+    }
     
 
     html! {
         <game>
             <Board on_click={board_callback} board={(*board_state).clone()}/>
-            <SetupBar side={props.side.clone()} type_select={bar_callback} selected_type={(*selected_piece_state).clone()}/>
+            <SetupBar side={props.side.clone()} type_select={bar_callback} selected_type={(*selected_piece_state).clone()} type_count={count}/>
         </game>
     }
 }
@@ -205,7 +210,7 @@ fn board(props: &BoardProps) -> Html {
                 on_click.emit((x, y, e));
             })
         };
-        if let Some(piece) = &props.board[i] {
+        if let Some(piece) = &props.board.0[i] {
             pieces.push(html! {
                 <Piece side={piece.owner.clone()} piece_type={piece.piece_type.clone()} {x} {y} on_click={callback}/>
             });
@@ -245,7 +250,8 @@ fn piece(props: &PieceProps) -> Html {
 pub struct SetupBarProps {
     side: Side,
     selected_type: Option<PieceType>,
-    type_select: Callback<PieceType>
+    type_select: Callback<PieceType>,
+    type_count: HashMap<PieceType, usize>,
 }
 
 #[function_component(SetupBar)]
@@ -281,7 +287,7 @@ fn setup_bar(props: &SetupBarProps) -> Html {
                     </name>
                     <spacer/>
                     <count>
-                        {"5"}
+                        {props.type_count[&piece_type]}
                     </count>
                 </text>
             </piece_box>

@@ -10,13 +10,13 @@ use serde::{
     ser::SerializeSeq,
     Deserialize, Serialize,
 };
-use strum::{Display, EnumIter, EnumString};
+use strum::{Display, EnumIter, EnumString, IntoEnumIterator};
 use uuid::Uuid;
 
 const BOARD_SIZE: usize = 10 * 10;
 
 #[derive(Clone, PartialEq)]
-pub struct Board([Option<Piece>; BOARD_SIZE]);
+pub struct Board(pub [Option<Piece>; BOARD_SIZE]);
 
 impl Board {
     pub fn new() -> Self {
@@ -42,6 +42,23 @@ impl Board {
         let y = piece.0 / 10;
         Some((x, y))
     }
+
+    pub fn count(&self) -> HashMap<PieceType, usize> {
+        let mut counts = HashMap::new();
+
+        for piece_type in PieceType::iter() {
+            counts.insert(piece_type.clone(), self.0.iter().filter(move |&piece| {
+                if let Some(piece) = piece {
+                    piece.piece_type == piece_type
+                } else {
+                    false
+                }
+            }).count());
+        }
+
+        counts
+    }
+
 }
 
 impl Default for Board {
@@ -72,22 +89,16 @@ impl<'de> Visitor<'de> for BoardVisitor {
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("a board struct")
     }
-    
-    fn visit_seq<A>(self, seq: A) -> Result<Self::Value, A::Error>
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
     where
         A: serde::de::SeqAccess<'de>,
     {
-        // if let Some(size) = seq.size_hint() {
-        //     if size != BOARD_SIZE {
-        //         return Err(de::Error::invalid_length(size, &Unexpected::Other("Length")))
-        //     }
-        // }
-
         let mut board = Board::new();
 
         let mut i = 0;
-        while let Some(piece) = seq.next_element()? {
-            board.0[i] = piece;
+        while let Some(value) = seq.next_element()? {
+            board.0[i] = value;
             i += 1;
         }
 

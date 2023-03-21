@@ -26,7 +26,7 @@ pub fn valid_move(board: &Board, id: Uuid, x: usize, y: usize) -> MoveResult {
         (7, 5) => true,
         _ => false,
     } {
-        return Err(MoveError::InvalidLocation)
+        return Err(MoveError::InvalidLocation);
     }
 
     //grid constraints
@@ -97,21 +97,22 @@ pub fn valid_move(board: &Board, id: Uuid, x: usize, y: usize) -> MoveResult {
     // attack testing
 
     if let Some(other_piece) = board.get(x, y).unwrap() {
-        if piece.piece_type == other_piece.piece_type {
-            return Ok(MoveResponse::AttackFailureMutual(
-                other_piece.clone(),
-                piece,
-            ));
-        }
+        if piece.owner != other_piece.owner {
+            if piece.piece_type == other_piece.piece_type {
+                return Ok(MoveResponse::AttackFailureMutual(
+                    other_piece.clone(),
+                    piece,
+                ));
+            }
 
-        if piece.piece_type.triumphs(&other_piece.piece_type) {
-            return Ok(MoveResponse::AttackSuccess(other_piece.clone()));
+            if piece.piece_type.triumphs(&other_piece.piece_type) {
+                return Ok(MoveResponse::AttackSuccess(other_piece.clone()));
+            }
+            return Ok(MoveResponse::AttackFailure(piece));
+        } else {
+            return Err(MoveError::FriendlyFire);
         }
-        return Ok(MoveResponse::AttackFailure(piece));
     }
-
-
-
 
     Ok(MoveResponse::Success)
 }
@@ -136,15 +137,16 @@ pub enum MoveError {
     OutsideOfMoveRange(usize, usize),
     #[error("Piece doesn't Exist: {0}")]
     PieceDoesNotExist(Uuid),
+    #[error("Friendly Fire")]
+    FriendlyFire,
 }
 
 pub fn move_piece(board: &mut Board, id: Uuid, x: usize, y: usize) -> MoveResult {
     let res = valid_move(board, id, x, y)?;
 
     let position = board.find(id).ok_or(MoveError::PieceDoesNotExist(id))?;
-    board.set(x, y,board.get(position.0, position.1).unwrap().clone());
+    board.set(x, y, board.get(position.0, position.1).unwrap().clone());
     board.set(position.0, position.1, None);
 
     Ok(res)
 }
-

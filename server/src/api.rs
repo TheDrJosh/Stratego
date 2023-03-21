@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
+use common::BoardState;
 use common::game_logic;
 use common::game_logic::MoveError;
 use common::game_logic::MoveResult;
-use common::BoardStateSendible;
 use common::GameInfo;
 use common::GameState;
 use common::InitSetupReturn;
@@ -123,7 +123,7 @@ async fn join_game(
 async fn get_game_state(
     game_states: &State<GameStoreState>,
     id: UuidGard,
-) -> Result<Json<BoardStateSendible>, NotFound<String>> {
+) -> Result<Json<BoardState>, NotFound<String>> {
     let id = id.0;
 
     let games = game_states.games.lock().await;
@@ -132,8 +132,8 @@ async fn get_game_state(
         game.ok_or(status::NotFound("Game does not exist!".to_owned()))
     }?;
 
-    let board_state = BoardStateSendible {
-        board: Vec::from(game.board.clone()),
+    let board_state = BoardState {
+        board: game.board.clone(),
         active_side: game.active_side.clone(),
     };
 
@@ -146,7 +146,7 @@ async fn get_game_state(
 async fn get_game_state_changed(
     game_states: &State<GameStoreState>,
     id: UuidGard,
-) -> Result<Json<BoardStateSendible>, NotFound<String>> {
+) -> Result<Json<BoardState>, NotFound<String>> {
     let id = id.0;
 
     {
@@ -167,8 +167,8 @@ async fn get_game_state_changed(
         game.ok_or(status::NotFound("Game does not exist!".to_owned()))
     }?;
 
-    let board_state = BoardStateSendible {
-        board: Vec::from(game.board.clone()),
+    let board_state = BoardState {
+        board: game.board.clone(),
         active_side: game.active_side.clone(),
     };
 
@@ -186,7 +186,7 @@ async fn move_piece(
 
     if let Some(game) = game_states.games.lock().await.get_mut(&id) {
         if let Some(Some(side)) = game.clients.get(&piece_move.access_token) {
-            if let Some(_piece) = game.board.iter().find(|piece| {
+            if let Some(_piece) = game.board.0.iter().find(|piece| {
                 if let Some(piece) = piece {
                     &piece.owner == side && piece.id == piece_move.piece_id
                 } else {
@@ -250,7 +250,7 @@ async fn init_setup(
                 } else {
                     39 - i
                 };
-                game.board[index] = Some(Piece {
+                game.board.0[index] = Some(Piece {
                     id: Uuid::new_v4(),
                     owner: side.clone(),
                     piece_type: init_state.pieces[i].clone(),
