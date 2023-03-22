@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use common::utils::SendibleArray;
+use common::{UserToken, InitState};
 use common::{request, PieceType, Side};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
@@ -8,14 +10,6 @@ use yew_hooks::use_async;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::UnwrapThrowExt;
 
-struct GameState {
-    setup: bool,
-}
-impl GameState {
-    pub fn new() -> Self {
-        Self { setup: true }
-    }
-}
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
@@ -24,7 +18,7 @@ pub struct Props {
 
 #[function_component(Game)]
 pub fn game(props: &Props) -> Html {
-    let state = use_state(|| GameState::new());
+    let setup_state = use_state(|| true);
 
     let user_access = {
         let id = props.id.clone();
@@ -48,10 +42,10 @@ pub fn game(props: &Props) -> Html {
     if !user_access.loading {
         if let Some(user_access) = &user_access.data {
             if let Some(side) = &user_access.side {
-                if !state.setup {
+                if !*setup_state {
                     html!{ <GameLogic/> }
                 } else {
-                    html!{ <SetupGame side={side.clone()} /> }
+                    html!{ <SetupGame game_id={props.id.clone()} access_token={user_access.clone()} /> }
                 }
             } else {
                 html!{ <GameLogic/> }
@@ -102,7 +96,8 @@ fn game_logic() -> Html {
 
 #[derive(Properties, PartialEq)]
 struct SetupGameProps {
-    side: Side,
+    game_id: Uuid,
+    access_token: UserToken,
 }
 
 
@@ -140,7 +135,7 @@ fn setup_game(props: &SetupGameProps) -> Html {
     };
     let board_callback = {
         let board_state = board_state.clone();
-        let side = props.side.clone();
+        let side = props.access_token.side.clone().unwrap();
         let selected_piece_state = selected_piece_state.clone();
 
         Callback::from(move |e| {
@@ -177,16 +172,43 @@ fn setup_game(props: &SetupGameProps) -> Html {
 
     for piece_type in PieceType::iter() {
         count.insert(piece_type.clone(), piece_type.starting_count() - count[&piece_type]);
-        finishable &= piece_type.starting_count() == count[&piece_type];
+        finishable &= *count.get(&piece_type).unwrap_or(&0) == 0;
     }
 
+    let finsh_callback = {
+        let board_state = board_state.clone();
+        let access_token = props.access_token.access_toket.clone();
+        let game_id = props.game_id.clone();
+        Callback::from(move |_| {
+            let mut pieces = SendibleArray::<PieceType, 40>::default();
+            for i in 0..40 {
+                pieces[i] = (*board_state).0[i + 60].clone().unwrap().piece_type;
+            }
+            let init_state = InitState {
+                access_token: access_token,
+                pieces,
+            }; 
+            wasm_bindgen_futures::spawn_local(async move {request::init_setup(game_id, init_state).await.unwrap();})
+        })
+    };
 
     
 
     html! {
         <game>
             <Board on_click={board_callback} board={(*board_state).clone()}/>
-            <SetupBar side={props.side.clone()} type_select={bar_callback} selected_type={(*selected_piece_state).clone()} type_count={count}/>
+            <SetupBar side={props.access_token.side.clone().unwrap()} type_select={bar_callback} selected_type={(*selected_piece_state).clone()} type_count={count}/>
+            {
+                if finishable {
+                    html!{
+                        <finish>
+                            <button onclick={finsh_callback}>{"Finish"}</button>
+                        </finish>
+                    }
+                } else {
+                    html!{}
+                }
+            }
         </game>
     }
 }

@@ -1,37 +1,36 @@
-pub mod game_logic;
+#![feature(inline_const)]
+#![feature(const_trait_impl)]
 
+pub mod game_logic;
 #[cfg(feature = "client")]
 pub mod request;
+pub mod utils;
 
-use std::{collections::HashMap, fmt::Write};
-
-use serde::{
-    de::{self, Expected, SeqAccess, Unexpected, Visitor},
-    ser::SerializeSeq,
-    Deserialize, Serialize,
-};
+use std::collections::HashMap;
+use serde::{Serialize, Deserialize};
 use strum::{Display, EnumIter, EnumString, IntoEnumIterator};
+use thiserror::Error;
+use utils::SendibleArray;
 use uuid::Uuid;
 
 const BOARD_SIZE: usize = 10 * 10;
 
-#[derive(Clone, PartialEq)]
-pub struct Board(pub [Option<Piece>; BOARD_SIZE]);
+#[derive(Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct Board(pub SendibleArray<Option<Piece>, BOARD_SIZE>);
 
 impl Board {
     pub fn new() -> Self {
-        const INIT: Option<Piece> = None;
-        Self([INIT; BOARD_SIZE])
+        Self(SendibleArray::default())
     }
     pub fn get(&self, x: usize, y: usize) -> Option<&Option<Piece>> {
-        self.0.get(x + y * 10)
+        self.0 .0.get(x + y * 10)
     }
     pub fn set(&mut self, x: usize, y: usize, piece: Option<Piece>) {
         self.0[x + y * 10] = piece;
     }
 
     pub fn find(&self, id: Uuid) -> Option<(usize, usize)> {
-        let piece = self.0.iter().enumerate().find(|piece| {
+        let piece = self.0 .0.iter().enumerate().find(|piece| {
             if let Some(piece) = piece.1 {
                 piece.id == id
             } else {
@@ -47,71 +46,23 @@ impl Board {
         let mut counts = HashMap::new();
 
         for piece_type in PieceType::iter() {
-            counts.insert(piece_type.clone(), self.0.iter().filter(move |&piece| {
-                if let Some(piece) = piece {
-                    piece.piece_type == piece_type
-                } else {
-                    false
-                }
-            }).count());
+            counts.insert(
+                piece_type.clone(),
+                self.0
+                     .0
+                    .iter()
+                    .filter(move |&piece| {
+                        if let Some(piece) = piece {
+                            piece.piece_type == piece_type
+                        } else {
+                            false
+                        }
+                    })
+                    .count(),
+            );
         }
 
         counts
-    }
-
-}
-
-impl Default for Board {
-    fn default() -> Self {
-        const INIT: Option<Piece> = None;
-        Self([INIT; BOARD_SIZE])
-    }
-}
-
-impl Serialize for Board {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut seq = serializer.serialize_seq(Some(BOARD_SIZE))?;
-        for piece in &self.0 {
-            seq.serialize_element(&piece)?;
-        }
-        seq.end()
-    }
-}
-
-struct BoardVisitor;
-
-impl<'de> Visitor<'de> for BoardVisitor {
-    type Value = Board;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str("a board struct")
-    }
-
-    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-    where
-        A: serde::de::SeqAccess<'de>,
-    {
-        let mut board = Board::new();
-
-        let mut i = 0;
-        while let Some(value) = seq.next_element()? {
-            board.0[i] = value;
-            i += 1;
-        }
-
-        Ok(board)
-    }
-}
-
-impl<'de> Deserialize<'de> for Board {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        deserializer.deserialize_seq(BoardVisitor)
     }
 }
 
@@ -153,15 +104,36 @@ impl Side {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]
 pub struct Piece {
     pub id: Uuid,
     pub owner: Side,
     pub piece_type: PieceType,
 }
 
+// impl Default for Piece {
+//     fn default() -> Self {
+//         Self {
+//             id: Default::default(),
+//             owner: Side::Red,
+//             piece_type: Default::default(),
+//         }
+//     }
+// }
+
 #[derive(
-    Deserialize, Serialize, Clone, PartialEq, Display, Eq, Hash, PartialOrd, Ord, EnumIter, Debug,
+    Deserialize,
+    Serialize,
+    Clone,
+    PartialEq,
+    Display,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    EnumIter,
+    Debug,
+    Default,
 )]
 pub enum PieceType {
     Bomb = 11,
@@ -176,6 +148,8 @@ pub enum PieceType {
     Scout = 2,
     Spy = 1,
     Flag = 0,
+    #[default]
+    Unknown = -1,
 }
 
 impl PieceType {
@@ -210,6 +184,7 @@ impl PieceType {
             PieceType::Scout => 8,
             PieceType::Spy => 1,
             PieceType::Flag => 1,
+            PieceType::Unknown => 0,
         }
     }
 }
@@ -220,7 +195,7 @@ pub struct GameInfo {
     pub primary_side: Side,
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 pub struct UserToken {
     pub access_toket: Uuid,
     pub side: Option<Side>,
@@ -234,17 +209,21 @@ pub struct PieceMove {
     pub y: usize,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct InitState {
     pub access_token: Uuid,
-    pub pieces: Vec<PieceType>, //[PieceType; 40],
+    pub pieces: SendibleArray<PieceType, 40>,
 }
-#[derive(Deserialize, Serialize)]
-pub enum InitSetupReturn {
+
+#[derive(Deserialize, Serialize, Error, Debug)]
+pub enum InitSetupError {
+    #[error("Access Denied")]
     InvalidAccess,
+    #[error("Incorrect Piece Count")]
     IncorrectPieceCount,
-    Success,
+    #[error("Unknown")]
     UnknownFail,
+    #[error("Game Does Not Exist")]
     GameDoesNotExist,
 }
 

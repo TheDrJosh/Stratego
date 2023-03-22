@@ -2,8 +2,8 @@ use gloo_net::http::Request;
 use uuid::Uuid;
 
 use crate::{
-    game_logic::MoveResult, Board, BoardState, GameInfo, InitSetupReturn, InitState, PieceMove,
-    Side, UserToken, BOARD_SIZE,
+    game_logic::MoveResult, BoardState, GameInfo, InitSetupError, InitState, PieceMove, Side,
+    UserToken,
 };
 
 pub async fn create_game(game_info: GameInfo) -> anyhow::Result<Uuid> {
@@ -94,14 +94,15 @@ pub async fn move_piece(id: Uuid, piece_move: PieceMove) -> anyhow::Result<MoveR
     Ok(fetched)
 }
 
-pub async fn init_setup(id: Uuid, init_state: InitState) -> anyhow::Result<InitSetupReturn> {
+pub async fn init_setup(id: Uuid, init_state: InitState) -> anyhow::Result<()> {
     let fetched =
         Request::post(format!("http://127.0.0.1:8000/api/{}/init_setup", id.to_string()).as_str())
             .json(&init_state)?
             .send()
-            .await?
-            .json()
             .await?;
-
-    Ok(fetched)
+    if fetched.ok() {
+        Ok(())
+    } else {
+        Err(fetched.json::<InitSetupError>().await?.into())
+    }
 }

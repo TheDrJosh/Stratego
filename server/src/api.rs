@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use common::BoardState;
+use common::InitSetupError;
 use common::game_logic;
 use common::game_logic::MoveError;
 use common::game_logic::MoveResult;
 use common::GameInfo;
 use common::GameState;
-use common::InitSetupReturn;
 use common::InitState;
 use common::Piece;
 use common::PieceMove;
@@ -17,6 +17,7 @@ use rocket::response::status::NotFound;
 use rocket::tokio::sync::broadcast;
 use rocket::tokio::sync::broadcast::Sender;
 use rocket::{serde::json::Json, tokio::sync::Mutex, Route, State};
+use strum::IntoEnumIterator;
 use uuid::Uuid;
 
 use crate::util::SideGard;
@@ -186,7 +187,7 @@ async fn move_piece(
 
     if let Some(game) = game_states.games.lock().await.get_mut(&id) {
         if let Some(Some(side)) = game.clients.get(&piece_move.access_token) {
-            if let Some(_piece) = game.board.0.iter().find(|piece| {
+            if let Some(_piece) = game.board.0.0.iter().find(|piece| {
                 if let Some(piece) = piece {
                     &piece.owner == side && piece.id == piece_move.piece_id
                 } else {
@@ -213,38 +214,31 @@ async fn init_setup(
     game_states: &State<GameStoreState>,
     id: UuidGard,
     init_state: Json<InitState>,
-) -> Json<InitSetupReturn> {
+) -> Result<(), status::BadRequest<Json<InitSetupError>>> {
     let id = id.0;
     let init_state = init_state.0;
 
     let mut piece_count = HashMap::new();
 
-    for i in 0..30 {
+    for i in 0..40 {
         let t = &init_state.pieces[i];
         let c = piece_count.get(&t).unwrap_or(&0);
         piece_count.insert(t, *c + 1);
     }
 
-    let correct_piece_count = piece_count[&PieceType::Bomb] == 6
-        && piece_count[&PieceType::Captain] == 4
-        && piece_count[&PieceType::Colonel] == 2
-        && piece_count[&PieceType::Flag] == 1
-        && piece_count[&PieceType::General] == 1
-        && piece_count[&PieceType::Lieutenant] == 4
-        && piece_count[&PieceType::Major] == 3
-        && piece_count[&PieceType::Marshal] == 1
-        && piece_count[&PieceType::Miner] == 5
-        && piece_count[&PieceType::Scout] == 8
-        && piece_count[&PieceType::Sergeant] == 4
-        && piece_count[&PieceType::Spy] == 1;
+    let mut correct_piece_count = true;
+
+    for piece_type in PieceType::iter() {
+        correct_piece_count &= *piece_count.get(&piece_type).unwrap_or(&0) == piece_type.starting_count();
+    }
 
     if !correct_piece_count {
-        return Json::from(InitSetupReturn::IncorrectPieceCount);
+        return Err(status::BadRequest(Some(Json::from(InitSetupError::IncorrectPieceCount))))?;
     }
 
     if let Some(game) = game_states.games.lock().await.get_mut(&id) {
         if let Some(Some(side)) = game.clients.get(&init_state.access_token) {
-            for i in 0..30 {
+            for i in 0..40 {
                 let index = if side == &game.primary_side {
                     60 + i
                 } else {
@@ -258,13 +252,12 @@ async fn init_setup(
                 game_states.changed_games.send(id).unwrap();
             }
         } else {
-            return Json::from(InitSetupReturn::InvalidAccess);
+            return Err(status::BadRequest(Some(Json::from(InitSetupError::InvalidAccess))))?;
         }
     } else {
-        return Json::from(InitSetupReturn::UnknownFail);
+        return Err(status::BadRequest(Some(Json::from(InitSetupError::GameDoesNotExist))))?;
     }
-
-    Json::from(InitSetupReturn::UnknownFail)
+    Ok(())
 }
 
 #[get("/join_random/<side>", format = "json", rank=1)]
