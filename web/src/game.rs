@@ -1,5 +1,7 @@
 use std::collections::HashMap;
+use std::time::Duration;
 
+use common::game_logic::MoveError;
 use common::utils::SendibleArray;
 use common::{UserToken, InitState};
 use common::{request, PieceType, Side};
@@ -35,20 +37,27 @@ pub fn game(props: &Props) -> Html {
         );
     }
 
+    let setup_callback = {
+        let setup_state = setup_state.clone();
+        Callback::from(move |_| {
+            setup_state.set(false);
+        })
+    };
+
 
     
 
 
     if !user_access.loading {
         if let Some(user_access) = &user_access.data {
-            if let Some(side) = &user_access.side {
+            if let Some(_side) = &user_access.side {
                 if !*setup_state {
-                    html!{ <GameLogic/> }
+                    html!{ <GameLogic game_id={props.id.clone()} access_token={user_access.clone()} /> }
                 } else {
-                    html!{ <SetupGame game_id={props.id.clone()} access_token={user_access.clone()} /> }
+                    html!{ <SetupGame game_id={props.id.clone()} access_token={user_access.clone()} {setup_callback}/> }
                 }
             } else {
-                html!{ <GameLogic/> }
+                html!{ <GameViewer game_id={props.id.clone()} access_token={user_access.clone()} /> }
             }
             
         } else {
@@ -71,33 +80,86 @@ pub fn game(props: &Props) -> Html {
     }
 }
 
-struct GameLogicState {
-    board: common::Board
+#[derive(Properties, PartialEq)]
+struct GameLogicProps {
+    game_id: Uuid,
+    access_token: UserToken,
 }
 
 #[function_component(GameLogic)]
-fn game_logic() -> Html {
+fn game_logic(props: &GameLogicProps) -> Html {
 
-    let state = use_state(|| GameLogicState {
-        board: common::Board::new(),
-    });
+    let board_state = use_state(|| common::Board::new());
+
 
     let callback = Callback::from(move |e| {
         log::info!("game logic: {:?}", e);
     });
 
+    use_effect_with_deps(move |_| {
+
+    }, ());
+
 
     html! {
         <game>
-            <Board on_click={callback} board={state.board.clone()}/>
+            <Board on_click={callback} board={(*board_state).clone()}/>
         </game>
     }
 }
+
+#[function_component(GameViewer)]
+fn game_viewer(props: &GameLogicProps) -> Html {
+
+    let board_state = use_state(|| common::Board::new());
+
+
+    let callback = Callback::from(move |e| {
+        log::info!("game logic: {:?}", e);
+    });
+
+    
+    {
+        let game_id = props.game_id.clone();
+        let user_id = props.access_token.access_toket;
+        let board_state = board_state.clone();
+
+        use_effect_with_deps(move |_| {
+            wasm_bindgen_futures::spawn_local(async move {
+                let board = request::get_game_state(game_id, user_id).await.unwrap();
+                
+                board_state.set(board.board);
+
+                loop {
+                    let changed = request::get_game_state_changed(game_id, user_id).await.unwrap();
+                    if changed {
+                        let board = request::get_game_state(game_id, user_id).await.unwrap();
+                        board_state.set(board.board);
+                    }
+                    async_std::task::sleep(Duration::from_secs(2)).await;
+                }
+                
+            });
+        }, ());
+    }
+
+
+
+
+    html! {
+        <game>
+            <Board on_click={callback} board={(*board_state).clone()}/>
+        </game>
+    }
+}
+
+
 
 #[derive(Properties, PartialEq)]
 struct SetupGameProps {
     game_id: Uuid,
     access_token: UserToken,
+    setup_callback: Callback<()>,
 }
 
 
@@ -179,6 +241,7 @@ fn setup_game(props: &SetupGameProps) -> Html {
         let board_state = board_state.clone();
         let access_token = props.access_token.access_toket.clone();
         let game_id = props.game_id.clone();
+        let setup_callback = props.setup_callback.clone();
         Callback::from(move |_| {
             let mut pieces = SendibleArray::<PieceType, 40>::default();
             for i in 0..40 {
@@ -188,7 +251,18 @@ fn setup_game(props: &SetupGameProps) -> Html {
                 access_token: access_token,
                 pieces,
             }; 
-            wasm_bindgen_futures::spawn_local(async move {request::init_setup(game_id, init_state).await.unwrap();})
+            let setup_callback = setup_callback.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                match request::init_setup(game_id, init_state).await {
+                    Ok(_) => {
+                        setup_callback.emit(());
+                    },
+                    Err(err) => {
+                        let err: MoveError = err.downcast().unwrap();
+                        log::info!("{}", err);
+                    },
+                }
+            })
         })
     };
 
@@ -284,40 +358,40 @@ pub struct SetupBarProps {
 fn setup_bar(props: &SetupBarProps) -> Html {
     let mut pieces = Vec::new();
     for piece_type in PieceType::iter() {
-        
-        
-        let callback = {
-            let type_select = props.type_select.clone();
-            let piece_type = piece_type.clone();
-            Callback::from(move |_| {
+        if piece_type != PieceType::Unknown {
+            let callback = {
+                let type_select = props.type_select.clone();
                 let piece_type = piece_type.clone();
-                type_select.emit(piece_type);
-            })
-        };
-
-        let class = if Some(piece_type.clone()) == props.selected_type {
-            classes!("selected")
-        } else {
-            classes!()
-        };
-
-        pieces.push(html! {
-            <piece_box onclick={callback} class={class}>
-                <piece>
-                    <img src={format!("/static/assets/temp/{} {}.webp", props.side.to_string(), piece_type.to_string().to_lowercase())}/>
-                </piece>
-                
-                <text>
-                    <name>
-                        {piece_type.to_string()}
-                    </name>
-                    <spacer/>
-                    <count>
-                        {props.type_count[&piece_type]}
-                    </count>
-                </text>
-            </piece_box>
-        });
+                Callback::from(move |_| {
+                    let piece_type = piece_type.clone();
+                    type_select.emit(piece_type);
+                })
+            };
+    
+            let class = if Some(piece_type.clone()) == props.selected_type {
+                classes!("selected")
+            } else {
+                classes!()
+            };
+    
+            pieces.push(html! {
+                <piece_box onclick={callback} class={class}>
+                    <piece>
+                        <img src={format!("/static/assets/temp/{} {}.webp", props.side.to_string(), piece_type.to_string().to_lowercase())}/>
+                    </piece>
+                    
+                    <text>
+                        <name>
+                            {piece_type.to_string()}
+                        </name>
+                        <spacer/>
+                        <count>
+                            {props.type_count[&piece_type]}
+                        </count>
+                    </text>
+                </piece_box>
+            });
+        }
     }
 
     html! {

@@ -66,42 +66,37 @@ impl Board {
     }
 }
 
-pub struct GameState {
-    pub board: Board,
-    pub primary_side: Side,
-    pub clients: HashMap<Uuid, Option<Side>>, //Vec<UserToken>,
-    pub has_primary: bool,
-    pub has_secondary: bool,
-    pub active_side: Side,
-}
 
-impl GameState {
-    pub fn new(primary_side: Side) -> Self {
-        Self {
-            board: Board::new(),
-            primary_side: primary_side.clone(),
-            clients: Default::default(),
-            has_primary: false,
-            has_secondary: false,
-            active_side: primary_side,
-        }
-    }
-}
 
-#[derive(PartialEq, Clone, Debug, EnumString, Display, Deserialize, Serialize)]
+
+#[derive(PartialEq, Clone, Debug, EnumString, Display, Deserialize, Serialize, Hash, Eq)]
 #[strum(serialize_all = "snake_case")]
 pub enum Side {
     Red,
     Blue,
 }
 
-impl Side {
-    pub fn not(&self) -> Self {
+impl std::ops::Not for Side {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
         match self {
             Side::Red => Side::Blue,
             Side::Blue => Side::Red,
         }
     }
+}
+impl std::ops::Not for &Side {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        match self {
+            Side::Red => &Side::Blue,
+            Side::Blue => &Side::Red,
+        }
+    }
+
+
 }
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]
@@ -110,16 +105,6 @@ pub struct Piece {
     pub owner: Side,
     pub piece_type: PieceType,
 }
-
-// impl Default for Piece {
-//     fn default() -> Self {
-//         Self {
-//             id: Default::default(),
-//             owner: Side::Red,
-//             piece_type: Default::default(),
-//         }
-//     }
-// }
 
 #[derive(
     Deserialize,
@@ -231,4 +216,5 @@ pub enum InitSetupError {
 pub struct BoardState {
     pub board: Board,
     pub active_side: Side,
+    pub ready: bool,
 }
