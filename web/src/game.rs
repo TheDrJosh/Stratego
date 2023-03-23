@@ -3,15 +3,14 @@ use std::time::Duration;
 
 use common::game_logic::MoveError;
 use common::utils::SendibleArray;
-use common::{UserToken, InitState};
 use common::{request, PieceType, Side};
+use common::{InitState, UserToken};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
-use yew::prelude::*;
-use yew_hooks::use_async;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::UnwrapThrowExt;
-
+use yew::prelude::*;
+use yew_hooks::use_async;
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
@@ -44,22 +43,17 @@ pub fn game(props: &Props) -> Html {
         })
     };
 
-
-    
-
-
     if !user_access.loading {
         if let Some(user_access) = &user_access.data {
             if let Some(_side) = &user_access.side {
                 if !*setup_state {
-                    html!{ <GameLogic game_id={props.id.clone()} access_token={user_access.clone()} /> }
+                    html! { <GameLogic game_id={props.id.clone()} access_token={user_access.clone()} /> }
                 } else {
-                    html!{ <SetupGame game_id={props.id.clone()} access_token={user_access.clone()} {setup_callback}/> }
+                    html! { <SetupGame game_id={props.id.clone()} access_token={user_access.clone()} {setup_callback}/> }
                 }
             } else {
-                html!{ <GameViewer game_id={props.id.clone()} access_token={user_access.clone()} /> }
+                html! { <GameViewer game_id={props.id.clone()} access_token={user_access.clone()} /> }
             }
-            
         } else {
             if let Some(err) = &user_access.error {
                 html! {
@@ -68,7 +62,7 @@ pub fn game(props: &Props) -> Html {
                     </error>
                 }
             } else {
-                html! { }
+                html! {}
             }
         }
     } else {
@@ -88,63 +82,117 @@ struct GameLogicProps {
 
 #[function_component(GameLogic)]
 fn game_logic(props: &GameLogicProps) -> Html {
-
     let board_state = use_state(|| common::Board::new());
-
-
-    let callback = Callback::from(move |e| {
-        log::info!("game logic: {:?}", e);
-    });
-
-    use_effect_with_deps(move |_| {
-
-    }, ());
-
-
-    html! {
-        <game>
-            <Board on_click={callback} board={(*board_state).clone()}/>
-        </game>
-    }
-}
-
-#[function_component(GameViewer)]
-fn game_viewer(props: &GameLogicProps) -> Html {
-
-    let board_state = use_state(|| common::Board::new());
-
-
-    let callback = Callback::from(move |e| {
-        log::info!("game logic: {:?}", e);
-    });
-
+    let active_side_state = use_state(|| Option::<Side>::None);
+    let selected_state = use_state(|| Option::<(usize, usize)>::None);
     
     {
         let game_id = props.game_id.clone();
         let user_id = props.access_token.access_toket;
         let board_state = board_state.clone();
+        let active_side_state = active_side_state.clone();
 
-        use_effect_with_deps(move |_| {
-            wasm_bindgen_futures::spawn_local(async move {
-                let board = request::get_game_state(game_id, user_id).await.unwrap();
-                
-                board_state.set(board.board);
+        use_effect_with_deps(
+            move |_| {
+                wasm_bindgen_futures::spawn_local(async move {
+                    let mut board = request::get_game_state(game_id, user_id).await.unwrap();
 
-                loop {
-                    let changed = request::get_game_state_changed(game_id, user_id).await.unwrap();
-                    if changed {
-                        let board = request::get_game_state(game_id, user_id).await.unwrap();
-                        board_state.set(board.board);
+                    board_state.set(board.board);
+
+                    while !board.ready {
+                        async_std::task::sleep(Duration::from_secs(2)).await;
+                        let changed = request::get_game_state_changed(game_id, user_id)
+                            .await
+                            .unwrap();
+                        if changed {
+                            board = request::get_game_state(game_id, user_id).await.unwrap();
+                            board_state.set(board.board);
+                            active_side_state.set(Some(board.active_side));
+                        }
                     }
-                    async_std::task::sleep(Duration::from_secs(2)).await;
-                }
-                
-            });
-        }, ());
+                });
+            },
+            (),
+        );
     }
 
+    {
+        let selected_state = selected_state.clone();
+        use_effect(move || {
+            let document = gloo::utils::document();
+
+            let listener = gloo::events::EventListener::new(&document, "keydown", move |event| {
+                let event = event.dyn_ref::<web_sys::KeyboardEvent>().unwrap_throw();
+                if event.key_code() == 27 {
+                    //Escape
+                    selected_state.set(None);
+                }
+            });
+
+            || drop(listener)
+        });
+    }
+
+    let callback = {
+        let selected_state = selected_state.clone();
+        Callback::from(move |(x, y, e)| {
+            selected_state.set(Some((x, y)));
+        })
+    };
+
+    html! {
+        <game>
+        {
+            if *active_side_state != props.access_token.side && active_side_state.is_some() {
+                html! {
+                    <waiting>{format!("Waiting for {}", (*active_side_state).clone().unwrap())}</waiting>
+                }
+            } else {
+                html! { }
+            }
+        }
+            <Board on_click={callback} board={(*board_state).clone()} selected={*selected_state}/>
+        </game>
+    }
+}
 
 
+
+#[function_component(GameViewer)]
+fn game_viewer(props: &GameLogicProps) -> Html {
+    let board_state = use_state(|| common::Board::new());
+
+    let callback = Callback::from(move |e| {
+        log::info!("game logic: {:?}", e);
+    });
+
+    {
+        let game_id = props.game_id.clone();
+        let user_id = props.access_token.access_toket;
+        let board_state = board_state.clone();
+
+        use_effect_with_deps(
+            move |_| {
+                wasm_bindgen_futures::spawn_local(async move {
+                    let board = request::get_game_state(game_id, user_id).await.unwrap();
+
+                    board_state.set(board.board);
+
+                    loop {
+                        let changed = request::get_game_state_changed(game_id, user_id)
+                            .await
+                            .unwrap();
+                        if changed {
+                            let board = request::get_game_state(game_id, user_id).await.unwrap();
+                            board_state.set(board.board);
+                        }
+                        async_std::task::sleep(Duration::from_secs(2)).await;
+                    }
+                });
+            },
+            (),
+        );
+    }
 
     html! {
         <game>
@@ -152,8 +200,6 @@ fn game_viewer(props: &GameLogicProps) -> Html {
         </game>
     }
 }
-
-
 
 #[derive(Properties, PartialEq)]
 struct SetupGameProps {
@@ -162,10 +208,8 @@ struct SetupGameProps {
     setup_callback: Callback<()>,
 }
 
-
 #[function_component(SetupGame)]
 fn setup_game(props: &SetupGameProps) -> Html {
-
     let board_state = use_state(|| common::Board::new());
     let selected_piece_state = use_state(|| Option::<PieceType>::None);
 
@@ -173,10 +217,11 @@ fn setup_game(props: &SetupGameProps) -> Html {
         let selected_piece_state = selected_piece_state.clone();
         use_effect(move || {
             let document = gloo::utils::document();
-            
+
             let listener = gloo::events::EventListener::new(&document, "keydown", move |event| {
                 let event = event.dyn_ref::<web_sys::KeyboardEvent>().unwrap_throw();
-                if event.key_code() == 27 { //Escape
+                if event.key_code() == 27 {
+                    //Escape
                     selected_piece_state.set(None);
                 }
             });
@@ -184,10 +229,6 @@ fn setup_game(props: &SetupGameProps) -> Html {
             || drop(listener)
         });
     }
-
-    
-
-    
 
     let bar_callback = {
         let selected_piece_state = selected_piece_state.clone();
@@ -206,26 +247,26 @@ fn setup_game(props: &SetupGameProps) -> Html {
             event.prevent_default();
 
             if y >= 6 {
-                
                 if event.button() == 0 {
                     if let Some(piece) = &(*selected_piece_state) {
                         let count = (*board_state).count();
                         if count[&piece] < piece.starting_count() {
-                            board.set(x, y, Some(common::Piece {
-                                id: Uuid::new_v4(),
-                                owner: side.clone(),
-                                piece_type: piece.clone(),
-                            }));
+                            board.set(
+                                x,
+                                y,
+                                Some(common::Piece {
+                                    id: Uuid::new_v4(),
+                                    owner: side.clone(),
+                                    piece_type: piece.clone(),
+                                }),
+                            );
                         }
-                        
                     }
-                    
                 } else {
                     board.set(x, y, None);
                 }
                 board_state.set(board);
             }
-
         })
     };
 
@@ -233,7 +274,10 @@ fn setup_game(props: &SetupGameProps) -> Html {
     let mut finishable = true;
 
     for piece_type in PieceType::iter() {
-        count.insert(piece_type.clone(), piece_type.starting_count() - count[&piece_type]);
+        count.insert(
+            piece_type.clone(),
+            piece_type.starting_count() - count[&piece_type],
+        );
         finishable &= *count.get(&piece_type).unwrap_or(&0) == 0;
     }
 
@@ -250,23 +294,21 @@ fn setup_game(props: &SetupGameProps) -> Html {
             let init_state = InitState {
                 access_token: access_token,
                 pieces,
-            }; 
+            };
             let setup_callback = setup_callback.clone();
             wasm_bindgen_futures::spawn_local(async move {
                 match request::init_setup(game_id, init_state).await {
                     Ok(_) => {
                         setup_callback.emit(());
-                    },
+                    }
                     Err(err) => {
                         let err: MoveError = err.downcast().unwrap();
                         log::info!("{}", err);
-                    },
+                    }
                 }
             })
         })
     };
-
-    
 
     html! {
         <game>
@@ -287,14 +329,13 @@ fn setup_game(props: &SetupGameProps) -> Html {
     }
 }
 
-
 #[derive(Properties, PartialEq)]
 pub struct BoardProps {
     board: common::Board,
     on_click: Callback<(usize, usize, MouseEvent)>,
+    selected: Option<(usize, usize)>,
+    highlighted: Option<HashMap<(usize, usize), bool>>,
 }
-
-
 
 #[function_component(Board)]
 fn board(props: &BoardProps) -> Html {
@@ -315,8 +356,19 @@ fn board(props: &BoardProps) -> Html {
                 <Piece side={piece.owner.clone()} piece_type={piece.piece_type.clone()} {x} {y} on_click={callback}/>
             });
         } else {
+            let mut class = Classes::new();
+            if let Some(selected) = props.selected {
+                if x == selected.0 && y == selected.1 {
+                    class.push("selected");
+                }
+            }
+            if let Some(highlighted) = &props.highlighted {
+                if *highlighted.get(&(x, y)).unwrap_or(&false) {
+                    class.push("hightlighted");
+                }
+            }
             pieces.push(html! {
-                <empty style={format!("grid-column: {}; grid-row: {};", x + 1, y + 1)} onclick={callback.clone()} oncontextmenu={callback} />
+                <empty class={class} style={format!("grid-column: {}; grid-row: {};", x + 1, y + 1)} onclick={callback.clone()} oncontextmenu={callback} />
             });
         }
     }
@@ -335,13 +387,26 @@ pub struct PieceProps {
     x: usize,
     y: usize,
     on_click: Callback<MouseEvent>,
+    #[prop_or_default]
+    selected: bool,
+    #[prop_or_default]
+    highlighted: bool,
 }
 
 #[function_component(Piece)]
 fn piece(props: &PieceProps) -> Html {
+    let mut class = Classes::new();
+    if props.selected {
+        class.push("selected");
+    }
+    if props.highlighted {
+        class.push("hightlighted");
+    }
+
+    
     html! {
         <piece>
-            <img onclick={props.on_click.clone()} oncontextmenu={props.on_click.clone()} style={format!("grid-column: {}; grid-row: {};", props.x + 1, props.y + 1)} src={format!("/static/assets/temp/{} {}.webp", props.side.to_string(), props.piece_type.to_string().to_lowercase())}/>
+            <img class={class} onclick={props.on_click.clone()} oncontextmenu={props.on_click.clone()} style={format!("grid-column: {}; grid-row: {};", props.x + 1, props.y + 1)} src={format!("/static/assets/temp/{} {}.webp", props.side.to_string(), props.piece_type.to_string().to_lowercase())}/>
         </piece>
     }
 }
@@ -367,13 +432,13 @@ fn setup_bar(props: &SetupBarProps) -> Html {
                     type_select.emit(piece_type);
                 })
             };
-    
+
             let class = if Some(piece_type.clone()) == props.selected_type {
                 classes!("selected")
             } else {
                 classes!()
             };
-    
+
             pieces.push(html! {
                 <piece_box onclick={callback} class={class}>
                     <piece>

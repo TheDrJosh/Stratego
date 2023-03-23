@@ -1,14 +1,13 @@
 use common_comps::*;
+use game::Game;
 use home::Home;
 use select_game::SelectGame;
 use yew::prelude::*;
 use yew_router::prelude::*;
-use game::Game;
 mod common_comps;
+mod game;
 mod home;
 mod select_game;
-mod game;
-
 
 fn switch(routes: Route) -> Html {
     match routes {

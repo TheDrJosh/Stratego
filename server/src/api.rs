@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 
-use common::Board;
-use common::Side;
 use common::game_logic;
 use common::game_logic::MoveError;
 use common::game_logic::MoveResult;
+use common::Board;
 use common::BoardState;
 use common::GameInfo;
 use common::InitSetupError;
@@ -12,6 +11,7 @@ use common::InitState;
 use common::Piece;
 use common::PieceMove;
 use common::PieceType;
+use common::Side;
 use common::UserToken;
 use rocket::http::Status;
 use rocket::response::status;
@@ -65,18 +65,23 @@ impl GameState {
     }
     pub fn has_primary(&self) -> bool {
         let primary_side = self.primary_side.clone();
-        self.clients.values().find(move |&(side, _)| side == &Some(primary_side.clone())).is_some()
+        self.clients
+            .values()
+            .find(move |&(side, _)| side == &Some(primary_side.clone()))
+            .is_some()
     }
     pub fn has_secondary(&self) -> bool {
         let secondary_side = !self.primary_side.clone();
-        self.clients.values().find(move |&(side, _)| side == &Some(secondary_side.clone())).is_some()
+        self.clients
+            .values()
+            .find(move |&(side, _)| side == &Some(secondary_side.clone()))
+            .is_some()
     }
     pub fn ready(&self) -> bool {
-        self.ready.get(&Side::Red).unwrap_or(&false) == self.ready.get(&Side::Blue).unwrap_or(&false)
+        self.ready.get(&Side::Red).unwrap_or(&false)
+            == self.ready.get(&Side::Blue).unwrap_or(&false)
     }
 }
-
-
 
 impl Default for GameStoreState {
     fn default() -> Self {
@@ -143,7 +148,10 @@ async fn join_game(
         }
     }
     let user_id = Uuid::new_v4();
-    game.clients.insert(user_id, (join_side.clone(), game_states.changed_games.subscribe()));
+    game.clients.insert(
+        user_id,
+        (join_side.clone(), game_states.changed_games.subscribe()),
+    );
 
     Ok(UserToken {
         access_toket: user_id,
@@ -156,8 +164,9 @@ async fn join_game(
 async fn get_game_state(
     game_states: &State<GameStoreState>,
     id: UuidGard,
-    user_token: UuidGard
+    user_token: UuidGard,
 ) -> Result<Json<BoardState>, status::NotFound<String>> {
+    //TODO! filp for other side
     let id = id.0;
     let user_token = user_token.0;
 
@@ -180,22 +189,28 @@ async fn get_game_state(
 async fn get_game_state_changed(
     game_states: &State<GameStoreState>,
     id: UuidGard,
-    user_token: UuidGard
+    user_token: UuidGard,
 ) -> Result<Json<bool>, status::Custom<String>> {
     let id = id.0;
     let user_token = user_token.0;
-    
-    let mut games = game_states.games.lock().await;
-    let game = games.get_mut(&id).ok_or(status::Custom(Status::NotFound,"Game does not exist!".to_owned()))?;
 
-    let (_, recv) = game.clients.get_mut(&user_token).ok_or(status::Custom(Status::Unauthorized, "Not an active user".to_owned()))?;
+    let mut games = game_states.games.lock().await;
+    let game = games.get_mut(&id).ok_or(status::Custom(
+        Status::NotFound,
+        "Game does not exist!".to_owned(),
+    ))?;
+
+    let (_, recv) = game.clients.get_mut(&user_token).ok_or(status::Custom(
+        Status::Unauthorized,
+        "Not an active user".to_owned(),
+    ))?;
 
     let mut changed = false;
 
     while !recv.is_empty() {
         changed |= recv.recv().await.unwrap() == id;
     }
-    
+
     Ok(changed.into())
 }
 

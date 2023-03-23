@@ -55,10 +55,16 @@ pub async fn join_random_game(side: Side) -> anyhow::Result<Uuid> {
 }
 
 pub async fn get_game_state(game_id: Uuid, user_id: Uuid) -> anyhow::Result<BoardState> {
-    let fetched =
-        Request::get(format!("http://127.0.0.1:8000/api/{}/game_state/{}", game_id.to_string(), user_id.to_string()).as_str())
-            .send()
-            .await?;
+    let fetched = Request::get(
+        format!(
+            "http://127.0.0.1:8000/api/{}/game_state/{}",
+            game_id.to_string(),
+            user_id.to_string()
+        )
+        .as_str(),
+    )
+    .send()
+    .await?;
     let fetched: BoardState = if fetched.ok() {
         fetched.json().await?
     } else {
@@ -69,10 +75,16 @@ pub async fn get_game_state(game_id: Uuid, user_id: Uuid) -> anyhow::Result<Boar
 }
 
 pub async fn get_game_state_changed(game_id: Uuid, user_id: Uuid) -> anyhow::Result<bool> {
-    let fetched =
-        Request::get(format!("http://127.0.0.1:8000/api/{}/game_state_changed/{}", game_id.to_string(), user_id.to_string()).as_str())
-            .send()
-            .await?;
+    let fetched = Request::get(
+        format!(
+            "http://127.0.0.1:8000/api/{}/game_state_changed/{}",
+            game_id.to_string(),
+            user_id.to_string()
+        )
+        .as_str(),
+    )
+    .send()
+    .await?;
     let fetched = if fetched.ok() {
         fetched.json().await?
     } else {

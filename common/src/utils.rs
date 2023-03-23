@@ -1,11 +1,19 @@
-use std::{marker::PhantomData};
+use std::marker::PhantomData;
 
-use serde::{Serialize, Deserialize, de::{Visitor, self}, ser::SerializeSeq};
+use serde::{
+    de::{self, Visitor},
+    ser::SerializeSeq,
+    Deserialize, Serialize,
+};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct SendibleArray<T: ~const Default + Serialize + for<'a> Deserialize<'a>, const SIZE: usize>(pub [T; SIZE]);
+pub struct SendibleArray<T: ~const Default + Serialize + for<'a> Deserialize<'a>, const SIZE: usize>(
+    pub [T; SIZE],
+);
 
-impl<T: ~const Default + Serialize + for<'de> Deserialize<'de>, const SIZE: usize> Serialize for SendibleArray<T, SIZE> {
+impl<T: ~const Default + Serialize + for<'de> Deserialize<'de>, const SIZE: usize> Serialize
+    for SendibleArray<T, SIZE>
+{
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -18,9 +26,13 @@ impl<T: ~const Default + Serialize + for<'de> Deserialize<'de>, const SIZE: usiz
     }
 }
 
-struct BoardVisitor<T: Default + Serialize + for<'a> Deserialize<'a>, const SIZE: usize>(PhantomData<*const T>);
+struct BoardVisitor<T: Default + Serialize + for<'a> Deserialize<'a>, const SIZE: usize>(
+    PhantomData<*const T>,
+);
 
-impl<'de, T: ~const Default + Serialize + for<'a> Deserialize<'a>, const SIZE: usize> Visitor<'de> for BoardVisitor<T, SIZE> {
+impl<'de, T: ~const Default + Serialize + for<'a> Deserialize<'a>, const SIZE: usize> Visitor<'de>
+    for BoardVisitor<T, SIZE>
+{
     type Value = SendibleArray<T, SIZE>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -40,14 +52,19 @@ impl<'de, T: ~const Default + Serialize + for<'a> Deserialize<'a>, const SIZE: u
         }
 
         if i != SIZE {
-            return Err(de::Error::invalid_length(i, &(format!("Length of {}", SIZE).as_str())));
+            return Err(de::Error::invalid_length(
+                i,
+                &(format!("Length of {}", SIZE).as_str()),
+            ));
         }
 
         Ok(SendibleArray(arr.map(|x| x.unwrap())))
     }
 }
 
-impl<'de, T: ~const Default + Serialize + for<'a> Deserialize<'a>, const SIZE: usize> Deserialize<'de> for SendibleArray<T, SIZE> {
+impl<'de, T: ~const Default + Serialize + for<'a> Deserialize<'a>, const SIZE: usize>
+    Deserialize<'de> for SendibleArray<T, SIZE>
+{
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -56,14 +73,18 @@ impl<'de, T: ~const Default + Serialize + for<'a> Deserialize<'a>, const SIZE: u
     }
 }
 
-impl<T: ~const Default + Serialize + for<'a> Deserialize<'a>, const SIZE: usize> Default for SendibleArray<T, SIZE> {
+impl<T: ~const Default + Serialize + for<'a> Deserialize<'a>, const SIZE: usize> Default
+    for SendibleArray<T, SIZE>
+{
     fn default() -> Self {
         let t = [false; SIZE];
         Self(t.map(|_| T::default()))
     }
 }
 
-impl<T: ~const Default + Serialize + for<'a> Deserialize<'a>, const SIZE: usize> std::ops::Index<usize> for SendibleArray<T, SIZE> {
+impl<T: ~const Default + Serialize + for<'a> Deserialize<'a>, const SIZE: usize>
+    std::ops::Index<usize> for SendibleArray<T, SIZE>
+{
     type Output = T;
 
     fn index(&self, index: usize) -> &Self::Output {
@@ -71,14 +92,17 @@ impl<T: ~const Default + Serialize + for<'a> Deserialize<'a>, const SIZE: usize>
     }
 }
 
-
-impl<T: ~const Default + Serialize + for<'a> Deserialize<'a>, const SIZE: usize> std::ops::IndexMut<usize> for SendibleArray<T, SIZE> {
+impl<T: ~const Default + Serialize + for<'a> Deserialize<'a>, const SIZE: usize>
+    std::ops::IndexMut<usize> for SendibleArray<T, SIZE>
+{
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.0[index]
     }
 }
 
-impl<T: ~const Default + Serialize + for<'a> Deserialize<'a>, const SIZE: usize> From<[T; SIZE]> for SendibleArray<T, SIZE> {
+impl<T: ~const Default + Serialize + for<'a> Deserialize<'a>, const SIZE: usize> From<[T; SIZE]>
+    for SendibleArray<T, SIZE>
+{
     fn from(value: [T; SIZE]) -> Self {
         SendibleArray(value)
     }

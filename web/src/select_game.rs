@@ -1,4 +1,4 @@
-use common::{GameInfo, Side, request};
+use common::{request, GameInfo, Side};
 use uuid::Uuid;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
@@ -35,8 +35,6 @@ pub fn select_game() -> Html {
 
     let navigator = use_navigator().unwrap();
 
-
-
     match &*menu_state {
         MenuState::GameSelect => html! {
             <GameSelect {change_state}/>
@@ -65,7 +63,12 @@ pub fn select_game() -> Html {
             let side = side.clone();
             wasm_bindgen_futures::spawn_local(async move {
                 let navigator = navigator.clone();
-                let game_id = request::create_game(GameInfo { vs_bot: true, primary_side: side }).await.unwrap();
+                let game_id = request::create_game(GameInfo {
+                    vs_bot: true,
+                    primary_side: side,
+                })
+                .await
+                .unwrap();
                 navigator.push(&Route::Game { id: game_id });
             });
             html! {
@@ -76,7 +79,12 @@ pub fn select_game() -> Html {
             let side = side.clone();
             wasm_bindgen_futures::spawn_local(async move {
                 let navigator = navigator.clone();
-                let gameid = request::create_game(GameInfo { vs_bot: false, primary_side: side }).await.unwrap();
+                let gameid = request::create_game(GameInfo {
+                    vs_bot: false,
+                    primary_side: side,
+                })
+                .await
+                .unwrap();
                 navigator.push(&Route::Game { id: gameid });
             });
             html! {
@@ -208,7 +216,6 @@ fn join_select(props: &Props) -> Html {
         })
     };
 
-
     let invalid = if *state {
         html! {
             <invalid>{"invalid"}</invalid>
@@ -274,8 +281,6 @@ fn back(props: &BackProps) -> Html {
         <back onclick={change_state_on_click(props.prev_menu_state.clone(), &props.change_state)}>{"< Back"}</back>
     }
 }
-
-
 
 /*
 1. game_select -> 1. freind_select | 2. team_select(rand) | 3. team_select(comp)

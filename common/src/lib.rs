@@ -6,8 +6,8 @@ pub mod game_logic;
 pub mod request;
 pub mod utils;
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
 use strum::{Display, EnumIter, EnumString, IntoEnumIterator};
 use thiserror::Error;
 use utils::SendibleArray;
@@ -66,9 +66,6 @@ impl Board {
     }
 }
 
-
-
-
 #[derive(PartialEq, Clone, Debug, EnumString, Display, Deserialize, Serialize, Hash, Eq)]
 #[strum(serialize_all = "snake_case")]
 pub enum Side {
@@ -95,8 +92,6 @@ impl std::ops::Not for &Side {
             Side::Blue => &Side::Red,
         }
     }
-
-
 }
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]

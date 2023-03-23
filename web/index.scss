@@ -187,18 +187,23 @@ game {
                 transform: translate(-50%, -50%);
             }
         }
+        .selected {
+            background-color: #00000033;
+        }
+        .highlighted {
+            background-color: #ff000033;
+        }
 
         
     }
+    
     finish {
         position: absolute;
         right: 15%;
         top: 15em;
         button {
             font-size: 3em;
-
         }
-        
     }
 
     setup_bar {
