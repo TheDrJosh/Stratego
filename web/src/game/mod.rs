@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::rc::Rc;
 use std::time::Duration;
 
 use common::game_logic::MoveError;
@@ -10,71 +10,108 @@ use uuid::Uuid;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::UnwrapThrowExt;
 use yew::prelude::*;
-use yew_hooks::use_async;
+use yew::suspense::Suspension;
+use yew::suspense::SuspensionResult;
+
+use crate::game::utils::{BoardComponent, SetupBar};
+mod utils;
 
 
 //Convert to struct Component
+
+
 #[derive(Properties, PartialEq)]
 pub struct Props {
     pub id: Uuid,
 }
 
-#[function_component(Game)]
-pub fn game(props: &Props) -> Html {
-    let setup_state = use_state(|| true);
+#[derive(PartialEq)]
+pub struct JoinGameState {
+    s: Suspension,
+}
 
-    let user_access = {
-        let id = props.id.clone();
-        use_async(async move { request::join_game(id).await.map_err(|err| err.to_string()) })
-    };
+impl JoinGameState {
+    fn new() -> Self {
+        let s = Suspension::from_future(async {
+            
+        });
 
-    {
-        let user_access = user_access.clone();
-        use_effect_with_deps(
-            move |_| {
-                user_access.run();
-            },
-            (),
-        );
+        Self { s }
+    }
+}
+
+impl Reducible for JoinGameState {
+    type Action = ();
+
+    fn reduce(self: Rc<Self>, _action: Self::Action) -> Rc<Self> {
+        Self::new().into()
+    }
+}
+
+#[hook]
+pub fn use_sleep() -> SuspensionResult<Rc<dyn Fn()> > {
+    let sleep_state = use_reducer(JoinGameState::new);
+
+    if sleep_state.s.resumed() {
+        Ok(Rc::new(move || sleep_state.dispatch(())))
+    } else {
+        Err(sleep_state.s.clone())
+    }
+}
+
+
+#[function_component(GameSetup)]
+pub fn game_setup(props: &Props) -> Html {
+
+    let fallback = html! {<div>{"Loading..."}</div>};
+
+    html! {
+        <Suspense {fallback}>
+            <GameLoader id={props.id}/>
+        </Suspense>
     }
 
-    let setup_callback = {
-        let setup_state = setup_state.clone();
-        Callback::from(move |_| {
-            setup_state.set(false);
-        })
-    };
+}
 
-    if !user_access.loading {
-        if let Some(user_access) = &user_access.data {
-            if let Some(_side) = &user_access.side {
-                if !*setup_state {
-                    html! { <GameLogic game_id={props.id.clone()} access_token={user_access.clone()} /> }
-                } else {
-                    html! { <SetupGame game_id={props.id.clone()} access_token={user_access.clone()} {setup_callback}/> }
-                }
-            } else {
-                html! { <GameViewer game_id={props.id.clone()} access_token={user_access.clone()} /> }
-            }
-        } else {
-            if let Some(err) = &user_access.error {
-                html! {
-                    <error>
-                        { format!("Error: {}", err) }
-                    </error>
-                }
-            } else {
-                html! {}
-            }
+#[function_component(GameLoader)]
+pub fn game_loader(props: &Props) -> Html {
+
+    
+
+    html! {
+        
+    }
+
+}
+
+#[derive(Properties, PartialEq)]
+pub struct GameProps {
+    pub id: Uuid,
+}
+
+struct Game {
+    setup_complete: bool,
+}
+
+impl Component for Game {
+    type Message = ();
+    type Properties = GameProps;
+
+    fn create(ctx: &Context<Self>) -> Self {
+        Self {
+            setup_complete: false,
         }
-    } else {
+    }
+
+    fn view(&self, _ctx: &Context<Self>) -> Html {
         html! {
-            <loading>
-                {"Loading ..."}
-            </loading>
+            // impl
         }
     }
 }
+
+
+
 
 #[derive(Properties, PartialEq)]
 struct GameLogicProps {
@@ -153,7 +190,7 @@ fn game_logic(props: &GameLogicProps) -> Html {
                 html! { }
             }
         }
-            <Board on_click={callback} board={(*board_state).clone()} selected={*selected_state}/>
+            <BoardComponent on_click={callback} board={(*board_state).clone()} selected={*selected_state}/>
         </game>
     }
 }
@@ -197,7 +234,7 @@ fn game_viewer(props: &GameLogicProps) -> Html {
 
     html! {
         <game>
-            <Board on_click={callback} board={(*board_state).clone()}/>
+            <BoardComponent on_click={callback} board={(*board_state).clone()}/>
         </game>
     }
 }
@@ -313,7 +350,7 @@ fn setup_game(props: &SetupGameProps) -> Html {
 
     html! {
         <game>
-            <Board on_click={board_callback} board={(*board_state).clone()}/>
+            <BoardComponent on_click={board_callback} board={(*board_state).clone()}/>
             <SetupBar side={props.access_token.side.clone().unwrap()} type_select={bar_callback} selected_type={(*selected_piece_state).clone()} type_count={count}/>
             {
                 if finishable {
@@ -330,148 +367,3 @@ fn setup_game(props: &SetupGameProps) -> Html {
     }
 }
 
-#[derive(Properties, PartialEq)]
-pub struct BoardProps {
-    board: common::Board,
-    on_click: Callback<(usize, usize, MouseEvent)>,
-    selected: Option<(usize, usize)>,
-    highlighted: Option<HashMap<(usize, usize), bool>>,
-}
-
-#[function_component(Board)]
-fn board(props: &BoardProps) -> Html {
-    let mut pieces = Vec::new();
-
-    for i in 0..100 {
-        let x = i % 10;
-        let y = i / 10;
-
-        let callback = {
-            let on_click = props.on_click.clone();
-            Callback::from(move |e| {
-                on_click.emit((x, y, e));
-            })
-        };
-        if let Some(piece) = &props.board.0[i] {
-            let selected = if let Some((u, v)) = props.selected {
-                x == u && y == v
-            } else {
-                false
-            };
-            let highlighted = if let Some(highlighted) = &props.highlighted {
-                *highlighted.get(&(x, y)).unwrap_or(&false)
-            } else {
-                false
-            };
-            pieces.push(html! {
-                <Piece side={piece.owner.clone()} piece_type={piece.piece_type.clone()} {x} {y} on_click={callback} {selected} {highlighted} />
-            });
-        } else {
-            let mut class = Classes::new();
-            if let Some(selected) = props.selected {
-                if x == selected.0 && y == selected.1 {
-                    class.push("selected");
-                }
-            }
-            if let Some(highlighted) = &props.highlighted {
-                if *highlighted.get(&(x, y)).unwrap_or(&false) {
-                    class.push("hightlighted");
-                }
-            }
-            pieces.push(html! {
-                <empty class={class} style={format!("grid-column: {}; grid-row: {};", x + 1, y + 1)} onclick={callback.clone()} oncontextmenu={callback} />
-            });
-        }
-    }
-
-    html! {
-        <board>
-            {pieces}
-        </board>
-    }
-}
-
-#[derive(Properties, PartialEq)]
-pub struct PieceProps {
-    side: Side,
-    piece_type: PieceType,
-    x: usize,
-    y: usize,
-    on_click: Callback<MouseEvent>,
-    #[prop_or_default]
-    selected: bool,
-    #[prop_or_default]
-    highlighted: bool,
-}
-
-#[function_component(Piece)]
-fn piece(props: &PieceProps) -> Html {
-    let mut class = Classes::new();
-    if props.selected {
-        class.push("selected");
-    }
-    if props.highlighted {
-        class.push("hightlighted");
-    }
-
-    html! {
-        <piece class={class}>
-            <img onclick={props.on_click.clone()} oncontextmenu={props.on_click.clone()} style={format!("grid-column: {}; grid-row: {};", props.x + 1, props.y + 1)} src={format!("/static/assets/temp/{} {}.webp", props.side.to_string(), props.piece_type.to_string().to_lowercase())}/>
-        </piece>
-    }
-}
-
-#[derive(Properties, PartialEq)]
-pub struct SetupBarProps {
-    side: Side,
-    selected_type: Option<PieceType>,
-    type_select: Callback<PieceType>,
-    type_count: HashMap<PieceType, usize>,
-}
-
-#[function_component(SetupBar)]
-fn setup_bar(props: &SetupBarProps) -> Html {
-    let mut pieces = Vec::new();
-    for piece_type in PieceType::iter() {
-        if piece_type != PieceType::Unknown {
-            let callback = {
-                let type_select = props.type_select.clone();
-                let piece_type = piece_type.clone();
-                Callback::from(move |_| {
-                    let piece_type = piece_type.clone();
-                    type_select.emit(piece_type);
-                })
-            };
-
-            let class = if Some(piece_type.clone()) == props.selected_type {
-                classes!("selected")
-            } else {
-                classes!()
-            };
-
-            pieces.push(html! {
-                <piece_box onclick={callback} class={class}>
-                    <piece>
-                        <img src={format!("/static/assets/temp/{} {}.webp", props.side.to_string(), piece_type.to_string().to_lowercase())}/>
-                    </piece>
-                    
-                    <text>
-                        <name>
-                            {piece_type.to_string()}
-                        </name>
-                        <spacer/>
-                        <count>
-                            {props.type_count[&piece_type]}
-                        </count>
-                    </text>
-                </piece_box>
-            });
-        }
-    }
-
-    html! {
-        <setup_bar>
-            {pieces}
-        </setup_bar>
-    }
-}

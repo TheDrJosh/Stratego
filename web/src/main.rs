@@ -1,5 +1,5 @@
 use common_comps::*;
-use game::Game;
+use game::GameSetup;
 use home::Home;
 use select_game::SelectGame;
 use yew::prelude::*;
@@ -20,7 +20,7 @@ fn switch(routes: Route) -> Html {
             }
         },
         Route::Game { id } => html! {
-            <Game {id} />
+            <GameSetup {id} />
         },
         Route::NotFound => html! {
             <h1>{"404"}</h1>
