@@ -192,8 +192,14 @@ game {
         }
         .highlighted {
             background-color: #ff000033;
-        }
 
+        }
+        piece:hover {
+            background-color: #00000011;
+        }
+        empty:hover {
+            background-color: #00000011;
+        }
         
     }
     

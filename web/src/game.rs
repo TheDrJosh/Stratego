@@ -12,6 +12,8 @@ use wasm_bindgen::UnwrapThrowExt;
 use yew::prelude::*;
 use yew_hooks::use_async;
 
+
+//Convert to struct Component
 #[derive(Properties, PartialEq)]
 pub struct Props {
     pub id: Uuid,
@@ -178,16 +180,15 @@ fn game_viewer(props: &GameLogicProps) -> Html {
 
                     board_state.set(board.board);
 
-                    loop {
-                        let changed = request::get_game_state_changed(game_id, user_id)
-                            .await
-                            .unwrap();
-                        if changed {
-                            let board = request::get_game_state(game_id, user_id).await.unwrap();
-                            board_state.set(board.board);
-                        }
+                    while !request::get_game_state_changed(game_id, user_id)
+                    .await
+                    .unwrap() {
                         async_std::task::sleep(Duration::from_secs(2)).await;
+
                     }
+                    let board = request::get_game_state(game_id, user_id).await.unwrap();
+                    board_state.set(board.board);
+                    
                 });
             },
             (),
@@ -352,8 +353,18 @@ fn board(props: &BoardProps) -> Html {
             })
         };
         if let Some(piece) = &props.board.0[i] {
+            let selected = if let Some((u, v)) = props.selected {
+                x == u && y == v
+            } else {
+                false
+            };
+            let highlighted = if let Some(highlighted) = &props.highlighted {
+                *highlighted.get(&(x, y)).unwrap_or(&false)
+            } else {
+                false
+            };
             pieces.push(html! {
-                <Piece side={piece.owner.clone()} piece_type={piece.piece_type.clone()} {x} {y} on_click={callback}/>
+                <Piece side={piece.owner.clone()} piece_type={piece.piece_type.clone()} {x} {y} on_click={callback} {selected} {highlighted} />
             });
         } else {
             let mut class = Classes::new();
@@ -403,10 +414,9 @@ fn piece(props: &PieceProps) -> Html {
         class.push("hightlighted");
     }
 
-    
     html! {
-        <piece>
-            <img class={class} onclick={props.on_click.clone()} oncontextmenu={props.on_click.clone()} style={format!("grid-column: {}; grid-row: {};", props.x + 1, props.y + 1)} src={format!("/static/assets/temp/{} {}.webp", props.side.to_string(), props.piece_type.to_string().to_lowercase())}/>
+        <piece class={class}>
+            <img onclick={props.on_click.clone()} oncontextmenu={props.on_click.clone()} style={format!("grid-column: {}; grid-row: {};", props.x + 1, props.y + 1)} src={format!("/static/assets/temp/{} {}.webp", props.side.to_string(), props.piece_type.to_string().to_lowercase())}/>
         </piece>
     }
 }
