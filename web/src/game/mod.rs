@@ -20,50 +20,39 @@ mod utils;
 //Convert to struct Component
 
 
+#[derive(PartialEq)]
+struct JoinGameState(Suspension, Option<Uuid>);
+impl JoinGameState {
+    fn new(id: Uuid) -> Self {
+        JoinGameState(Suspension::from_future(async move {
+            request::join_game(id).await
+        }), None)
+    }
+}
+#[hook]
+fn use_join_game(id: Uuid) -> SuspensionResult<UserToken> {
+
+    let state = use_state(|| JoinGameState::new(id));
+
+    if state.0.resumed() {
+        Ok()
+    } else {
+
+    }
+
+
+    
+}
+
 #[derive(Properties, PartialEq)]
 pub struct Props {
     pub id: Uuid,
 }
 
-#[derive(PartialEq)]
-pub struct JoinGameState {
-    s: Suspension,
-}
-
-impl JoinGameState {
-    fn new() -> Self {
-        let s = Suspension::from_future(async {
-            
-        });
-
-        Self { s }
-    }
-}
-
-impl Reducible for JoinGameState {
-    type Action = ();
-
-    fn reduce(self: Rc<Self>, _action: Self::Action) -> Rc<Self> {
-        Self::new().into()
-    }
-}
-
-#[hook]
-pub fn use_sleep() -> SuspensionResult<Rc<dyn Fn()> > {
-    let sleep_state = use_reducer(JoinGameState::new);
-
-    if sleep_state.s.resumed() {
-        Ok(Rc::new(move || sleep_state.dispatch(())))
-    } else {
-        Err(sleep_state.s.clone())
-    }
-}
-
-
 #[function_component(GameSetup)]
 pub fn game_setup(props: &Props) -> Html {
 
-    let fallback = html! {<div>{"Loading..."}</div>};
+    let fallback = html! {<loading>{"Loading..."}</loading>};
 
     html! {
         <Suspense {fallback}>
