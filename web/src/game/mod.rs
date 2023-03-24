@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use std::sync::Mutex;
 use std::time::Duration;
 
 use common::game_logic::MoveError;
@@ -16,32 +17,33 @@ use yew::suspense::SuspensionResult;
 use crate::game::utils::{BoardComponent, SetupBar};
 mod utils;
 
-
 //Convert to struct Component
 
-
 #[derive(PartialEq)]
-struct JoinGameState(Suspension, Option<Uuid>);
+struct JoinGameState(Suspension, Rc<Option<UserToken>>);
 impl JoinGameState {
     fn new(id: Uuid) -> Self {
-        JoinGameState(Suspension::from_future(async move {
-            request::join_game(id).await
-        }), None)
+        let res = Rc::new(None);
+        let rc = res.clone();
+        JoinGameState(
+            Suspension::from_future(async move {
+                res = request::join_game(id).await.unwrap();
+                
+            }),
+            rc,
+        )
     }
 }
+
 #[hook]
 fn use_join_game(id: Uuid) -> SuspensionResult<UserToken> {
+    let sleep_state = use_state(|| JoinGameState::new(id));
 
-    let state = use_state(|| JoinGameState::new(id));
-
-    if state.0.resumed() {
-        Ok()
+    if sleep_state.0.resumed() {
+        Ok((*sleep_state.1.clone().unwrap()).clone())
     } else {
-
+        Err(sleep_state.0.clone())
     }
-
-
-    
 }
 
 #[derive(Properties, PartialEq)]
@@ -51,7 +53,6 @@ pub struct Props {
 
 #[function_component(GameSetup)]
 pub fn game_setup(props: &Props) -> Html {
-
     let fallback = html! {<loading>{"Loading..."}</loading>};
 
     html! {
@@ -59,18 +60,11 @@ pub fn game_setup(props: &Props) -> Html {
             <GameLoader id={props.id}/>
         </Suspense>
     }
-
 }
 
 #[function_component(GameLoader)]
 pub fn game_loader(props: &Props) -> Html {
-
-    
-
-    html! {
-        
-    }
-
+    html! {}
 }
 
 #[derive(Properties, PartialEq)]
@@ -99,9 +93,6 @@ impl Component for Game {
     }
 }
 
-
-
-
 #[derive(Properties, PartialEq)]
 struct GameLogicProps {
     game_id: Uuid,
@@ -113,7 +104,7 @@ fn game_logic(props: &GameLogicProps) -> Html {
     let board_state = use_state(|| common::Board::new());
     let active_side_state = use_state(|| Option::<Side>::None);
     let selected_state = use_state(|| Option::<(usize, usize)>::None);
-    
+
     {
         let game_id = props.game_id.clone();
         let user_id = props.access_token.access_toket;
@@ -184,8 +175,6 @@ fn game_logic(props: &GameLogicProps) -> Html {
     }
 }
 
-
-
 #[function_component(GameViewer)]
 fn game_viewer(props: &GameLogicProps) -> Html {
     let board_state = use_state(|| common::Board::new());
@@ -207,14 +196,13 @@ fn game_viewer(props: &GameLogicProps) -> Html {
                     board_state.set(board.board);
 
                     while !request::get_game_state_changed(game_id, user_id)
-                    .await
-                    .unwrap() {
+                        .await
+                        .unwrap()
+                    {
                         async_std::task::sleep(Duration::from_secs(2)).await;
-
                     }
                     let board = request::get_game_state(game_id, user_id).await.unwrap();
                     board_state.set(board.board);
-                    
                 });
             },
             (),
@@ -355,4 +343,3 @@ fn setup_game(props: &SetupGameProps) -> Html {
         </game>
     }
 }
-
