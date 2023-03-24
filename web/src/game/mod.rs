@@ -19,30 +19,19 @@ mod utils;
 
 //Convert to struct Component
 
-#[derive(PartialEq)]
-struct JoinGameState(Suspension, Rc<Option<UserToken>>);
-impl JoinGameState {
-    fn new(id: Uuid) -> Self {
-        let res = Rc::new(None);
-        let rc = res.clone();
-        JoinGameState(
-            Suspension::from_future(async move {
-                res = request::join_game(id).await.unwrap();
-                
-            }),
-            rc,
-        )
-    }
-}
+
 
 #[hook]
 fn use_join_game(id: Uuid) -> SuspensionResult<UserToken> {
-    let sleep_state = use_state(|| JoinGameState::new(id));
+    let token_state = use_state(|| Option::<UserToken>::None);
+    let suspension_state = use_state(|| Suspension::from_future(async move {
+        token_state.set(Some(request::join_game(id).await.unwrap()));
+    }));
 
-    if sleep_state.0.resumed() {
-        Ok((*sleep_state.1.clone().unwrap()).clone())
+    if suspension_state.resumed() {
+        Ok((*token_state).clone().unwrap())
     } else {
-        Err(sleep_state.0.clone())
+        Err((*suspension_state).clone())
     }
 }
 
