@@ -187,19 +187,19 @@ game {
                 transform: translate(-50%, -50%);
             }
         }
+        :hover {
+            background-color: #00000011;
+        }
         .selected {
             background-color: #00000033;
         }
         .highlighted {
             background-color: #ff000033;
-
         }
-        piece:hover {
-            background-color: #00000011;
+        .highlighted:hover {
+            background-color: #ff000055;
         }
-        empty:hover {
-            background-color: #00000011;
-        }
+        
         
     }
     

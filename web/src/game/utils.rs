@@ -10,7 +10,8 @@ pub struct BoardProps {
     pub board: common::Board,
     pub on_click: Callback<(usize, usize, MouseEvent)>,
     pub selected: Option<(usize, usize)>,
-    pub highlighted: Option<HashMap<(usize, usize), bool>>,
+    #[prop_or_default]
+    pub highlighted: HashMap<(usize, usize), bool>,
 }
 
 #[function_component(BoardComponent)]
@@ -33,11 +34,7 @@ pub fn board(props: &BoardProps) -> Html {
             } else {
                 false
             };
-            let highlighted = if let Some(highlighted) = &props.highlighted {
-                *highlighted.get(&(x, y)).unwrap_or(&false)
-            } else {
-                false
-            };
+            let highlighted = *props.highlighted.get(&(x, y)).unwrap_or(&false);
             pieces.push(html! {
                 <Piece side={piece.owner.clone()} piece_type={piece.piece_type.clone()} {x} {y} on_click={callback} {selected} {highlighted} />
             });
@@ -48,11 +45,11 @@ pub fn board(props: &BoardProps) -> Html {
                     class.push("selected");
                 }
             }
-            if let Some(highlighted) = &props.highlighted {
-                if *highlighted.get(&(x, y)).unwrap_or(&false) {
-                    class.push("hightlighted");
-                }
+            
+            if *props.highlighted.get(&(x, y)).unwrap_or(&false) {
+                class.push("highlighted");
             }
+            
             pieces.push(html! {
                 <empty class={class} style={format!("grid-column: {}; grid-row: {};", x + 1, y + 1)} onclick={callback.clone()} oncontextmenu={callback} />
             });
@@ -86,7 +83,7 @@ pub fn piece(props: &PieceProps) -> Html {
         class.push("selected");
     }
     if props.highlighted {
-        class.push("hightlighted");
+        class.push("highlighted");
     }
 
     html! {

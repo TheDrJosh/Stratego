@@ -13,9 +13,9 @@ use thiserror::Error;
 use utils::SendibleArray;
 use uuid::Uuid;
 
-const BOARD_SIZE: usize = 10 * 10;
+pub const BOARD_SIZE: usize = 10 * 10;
 
-#[derive(Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, Default, Debug)]
 pub struct Board(pub SendibleArray<Option<Piece>, BOARD_SIZE>);
 
 impl Board {
@@ -93,6 +93,16 @@ impl std::ops::Not for &Side {
         }
     }
 }
+// impl std::ops::Not for &mut Side {
+//     type Output = Self;
+
+//     fn not(self) -> Self::Output {
+//         match self {
+//             Side::Red => &mut Side::Blue,
+//             Side::Blue =>  &mut Side::Red,
+//         }
+//     }
+// }
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]
 pub struct Piece {
@@ -207,7 +217,7 @@ pub enum InitSetupError {
     GameDoesNotExist,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct BoardState {
     pub board: Board,
     pub active_side: Side,

@@ -78,8 +78,7 @@ impl GameState {
             .is_some()
     }
     pub fn ready(&self) -> bool {
-        self.ready.get(&Side::Red).unwrap_or(&false)
-            == self.ready.get(&Side::Blue).unwrap_or(&false)
+        self.ready.get(&Side::Red).unwrap_or(&false) & self.ready.get(&Side::Blue).unwrap_or(&false)
     }
 }
 
@@ -185,33 +184,38 @@ async fn get_game_state(
     Ok(board_state.into())
 }
 
+
+//derecate?
 #[get("/<id>/game_state_changed/<user_token>", format = "json")]
 async fn get_game_state_changed(
     game_states: &State<GameStoreState>,
     id: UuidGard,
     user_token: UuidGard,
-) -> Result<Json<bool>, status::Custom<String>> {
+) -> Result<Json<BoardState>, status::Custom<String>> {
     let id = id.0;
     let user_token = user_token.0;
 
     let mut games = game_states.games.lock().await;
-    let game = games.get_mut(&id).ok_or(status::Custom(
-        Status::NotFound,
-        "Game does not exist!".to_owned(),
-    ))?;
+        let game = games.get_mut(&id).ok_or(status::Custom(
+            Status::NotFound,
+            "Game does not exist!".to_owned(),
+        ))?;
+    
+        let (_, recv) = game.clients.get_mut(&user_token).ok_or(status::Custom(
+            Status::Unauthorized,
+            "Not an active user".to_owned(),
+        ))?;
 
-    let (_, recv) = game.clients.get_mut(&user_token).ok_or(status::Custom(
-        Status::Unauthorized,
-        "Not an active user".to_owned(),
-    ))?;
+    while recv.recv().await.unwrap() != id {}
 
-    let mut changed = false;
 
-    while !recv.is_empty() {
-        changed |= recv.recv().await.unwrap() == id;
-    }
+    let board_state = BoardState {
+        board: game.board.clone(),
+        active_side: game.active_side.clone(),
+        ready: game.ready(),
+    };
 
-    Ok(changed.into())
+    Ok(board_state.into())
 }
 
 #[put("/<id>/move_piece", format = "json", data = "<piece_move>")]
@@ -232,6 +236,7 @@ async fn move_piece(
                     false
                 }
             }) {
+                game.active_side = !game.active_side.clone();
                 return Json::from(game_logic::move_piece(
                     &mut game.board,
                     piece_move.piece_id,

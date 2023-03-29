@@ -3,9 +3,25 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
-pub fn valid_move(board: &Board, id: Uuid, x: usize, y: usize) -> MoveResult {
+pub fn valid_move_from_id(board: &Board, id: Uuid, x: usize, y: usize) -> MoveResult {
     let piece_position = board.find(id).ok_or(MoveError::PieceDoesNotExist(id))?;
-    let piece = board.0[piece_position.0].clone().unwrap();
+    valid_move(board, piece_position.0, piece_position.1, x, y)
+}
+
+pub fn valid_move(board: &Board, u: usize, v: usize, x: usize, y: usize) -> MoveResult {
+    let piece_position = (u, v);
+    let piece = board
+        .get(piece_position.0, piece_position.1)
+        .ok_or(MoveError::OutsideOfMoveRange(u, v))?
+        .clone()
+        .ok_or(MoveError::PieceNotFound(u, v))?;
+
+    //immovables
+    match &piece.piece_type {
+        PieceType::Bomb => Err(MoveError::Immovable)?,
+        PieceType::Flag => Err(MoveError::Immovable)?,
+        _ => {}
+    }
 
     //same position
     if x == piece_position.0 && y == piece_position.1 {
@@ -31,10 +47,10 @@ pub fn valid_move(board: &Board, id: Uuid, x: usize, y: usize) -> MoveResult {
 
     //grid constraints
     if piece.piece_type != PieceType::Scout {
-        if !((x == piece_position.0 + 1 && y == piece_position.1)
-            || (x == piece_position.0 - 1 && y == piece_position.1)
-            || (x == piece_position.0 && y == piece_position.1 + 1)
-            || (x == piece_position.0 && y == piece_position.1 - 1))
+        if !((piece_position.0 < 9 && (x == piece_position.0 + 1 && y == piece_position.1))
+            || (piece_position.0 > 0 && (x == piece_position.0 - 1 && y == piece_position.1))
+            || (piece_position.1 < 9 && (x == piece_position.0 && y == piece_position.1 + 1))
+            || (piece_position.1 > 0 && (x == piece_position.0 && y == piece_position.1 - 1)))
         {
             Err(MoveError::OutsideOfMoveRange(x, y))?;
         }
@@ -119,7 +135,7 @@ pub fn valid_move(board: &Board, id: Uuid, x: usize, y: usize) -> MoveResult {
 
 pub type MoveResult = Result<MoveResponse, MoveError>;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 pub enum MoveResponse {
     Success,
     AttackSuccess(Piece),
@@ -139,14 +155,34 @@ pub enum MoveError {
     PieceDoesNotExist(Uuid),
     #[error("Friendly Fire")]
     FriendlyFire,
+    #[error("Immovable")]
+    Immovable,
+    #[error("Piece Not Found At ({0}, {1})")]
+    PieceNotFound(usize, usize),
 }
 
 pub fn move_piece(board: &mut Board, id: Uuid, x: usize, y: usize) -> MoveResult {
-    let res = valid_move(board, id, x, y)?;
+    let res = valid_move_from_id(board, id, x, y)?;
 
     let position = board.find(id).ok_or(MoveError::PieceDoesNotExist(id))?;
-    board.set(x, y, board.get(position.0, position.1).unwrap().clone());
-    board.set(position.0, position.1, None);
+    match res {
+        MoveResponse::Success => {
+            board.set(x, y, board.get(position.0, position.1).unwrap().clone());
+            board.set(position.0, position.1, None);
+        },
+        MoveResponse::AttackSuccess(_) => {
+            board.set(x, y, board.get(position.0, position.1).unwrap().clone());
+            board.set(position.0, position.1, None);
+        },
+        MoveResponse::AttackFailure(_) => {
+            board.set(position.0, position.1, None);
+        },
+        MoveResponse::AttackFailureMutual(_, _) => {
+            board.set(x, y, board.get(position.0, position.1).unwrap().clone());
+            board.set(position.0, position.1, None);
+        },
+    }
+    
 
     Ok(res)
 }
